@@ -123,7 +123,7 @@ const translations = {
     sets: "SÉRIES",
     weight: "CARGA (KG)",
     lastWeight: "MEMÓRIA:",
-    rest: "DESCANDO ATIVO",
+    rest: "DESCANSO ATIVO",
     voiceEnd: "Ciclo de descanso terminado. Retomar protocolo.",
     jetLagOn: "JET LAG [ON]",
     jetLagOff: "JET LAG [OFF]",
@@ -131,7 +131,21 @@ const translations = {
     statsRate: "TAXA DE SUCESSO (7D)",
     statsVolume: "DISTRIBUIÇÃO DE CARGA MUSCULAR",
     syncOnline: "UPLINK [ON]",
-    syncOffline: "UPLINK [OFF]"
+    syncOffline: "UPLINK [OFF]",
+    resetTitle: "CONFIRMAR PURGA",
+    resetAction: "PURGAR",
+    quietOn: "[MUDO]",
+    quietOff: "[SOM]",
+    analyticsTitle: "TELEMETRIA",
+    jetLagAlertTitle: "[ALERTA TÁTICO]:",
+    jetLagAlertBody: "Modo Jet Lag ativado. Séries limitadas (MAX 2). Executar com precisão.",
+    execution: "EXECUÇÃO",
+    load: "CARGA [KG/LB]",
+    pause: "[PAUSA]",
+    play: "[PLAY]",
+    progress: "PRG",
+    active: "ACTV",
+    days: ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"],
   },
   en: {
     title: "HYBRID FIT",
@@ -158,7 +172,21 @@ const translations = {
     statsRate: "SUCCESS RATE (7D)",
     statsVolume: "MUSCLE LOAD DISTRIBUTION",
     syncOnline: "UPLINK [ON]",
-    syncOffline: "UPLINK [OFF]"
+    syncOffline: "UPLINK [OFF]",
+    resetTitle: "CONFIRM PURGE",
+    resetAction: "PURGE",
+    quietOn: "[MUTE]",
+    quietOff: "[SOUND]",
+    analyticsTitle: "TELEMETRY",
+    jetLagAlertTitle: "[LOW ENERGY]:",
+    jetLagAlertBody: "Low Energy mode is active. Sets are capped at 2. Move with precision.",
+    execution: "EXECUTION",
+    load: "LOAD [KG/LB]",
+    pause: "[PAUSE]",
+    play: "[PLAY]",
+    progress: "PRG",
+    active: "LIVE",
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
   },
   es: {
     title: "HYBRID FIT",
@@ -185,7 +213,21 @@ const translations = {
     statsRate: "TASA ÉXITO (7D)",
     statsVolume: "DISTRIBUCIÓN DE CARGA MUSCULAR",
     syncOnline: "UPLINK [ON]",
-    syncOffline: "UPLINK [OFF]"
+    syncOffline: "UPLINK [OFF]",
+    resetTitle: "CONFIRMAR PURGA",
+    resetAction: "PURGAR",
+    quietOn: "[MUDO]",
+    quietOff: "[SONIDO]",
+    analyticsTitle: "TELEMETRÍA",
+    jetLagAlertTitle: "[BAJA ENERGÍA]:",
+    jetLagAlertBody: "Modo Jet Lag activado. Series limitadas a 2. Ejecutar con precisión.",
+    execution: "EJECUCIÓN",
+    load: "CARGA [KG/LB]",
+    pause: "[PAUSA]",
+    play: "[PLAY]",
+    progress: "PRG",
+    active: "ACTV",
+    days: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
   }
 };
 
@@ -789,14 +831,14 @@ const App = () => {
         {showResetModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className={`${theme.surface} border-2 ${theme.border} p-8 max-w-sm w-full animate-in zoom-in-95`}>
-              <h3 className="font-display text-3xl mb-2 text-[var(--accent)]">// CONFIRMAR PURGA</h3>
+              <h3 className="font-display text-3xl mb-2 text-[var(--accent)]">// {t.resetTitle}</h3>
               <p className={`font-mono text-xs ${theme.muted} mb-8 uppercase leading-relaxed`}>{t.reset}</p>
               <div className="flex gap-4 font-mono text-sm font-bold">
                 <button onClick={() => setShowResetModal(false)} className={`flex-1 py-3 border-2 ${theme.border} hover:bg-[#27272A] uppercase`}>
                   {t.cancel}
                 </button>
                 <button onClick={resetProgress} className={`flex-1 py-3 border-2 border-red-500 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white uppercase`}>
-                  Purga
+                  {t.resetAction}
                 </button>
               </div>
             </div>
@@ -848,7 +890,7 @@ const App = () => {
                     [{lang}]
                   </button>
                   <button onClick={() => setQuietMode(!quietMode)} className={`px-3 py-2 border-2 ${theme.border} ${quietMode ? 'text-red-400 border-red-900' : ''}`}>
-                    {quietMode ? '[MUDO]' : '[SOM]'}
+                    {quietMode ? t.quietOn : t.quietOff}
                   </button>
                   <button onClick={() => {
                     try {
@@ -871,6 +913,19 @@ const App = () => {
 
             </div>
           </header>
+
+          {/* TABS CONTROLS */}
+          <div className={`${theme.nav} border-2 ${theme.border} ${theme.navBg} backdrop-blur-md font-mono text-xs sm:text-sm font-bold uppercase`}>
+            <button onClick={() => setActiveTab('home')} className={`${theme.navButton} text-center transition-colors ${activeTab === 'home' ? theme.accent : `hover:${theme.surface}`}`}>
+              {t.home}
+            </button>
+            <button onClick={() => setActiveTab('hotel')} className={`${theme.navButton} text-center transition-colors border-l-2 border-r-2 md:border-l-0 md:border-r-0 ${theme.border} ${activeTab === 'hotel' ? theme.accent : `hover:${theme.surface}`}`}>
+              {t.hotel}
+            </button>
+            <button onClick={() => setActiveTab('analytics')} className={`${theme.navButton} text-center transition-colors ${activeTab === 'analytics' ? theme.accent : `hover:${theme.surface}`}`}>
+              {t.analytics}
+            </button>
+          </div>
 
           {activeTab !== 'analytics' && (() => {
             const todaySummary = getWorkoutSummary(currentDayIndex, activeTab);
@@ -944,22 +999,9 @@ const App = () => {
             );
           })()}
 
-          {/* TABS CONTROLS */}
-          <div className={`${theme.nav} border-2 ${theme.border} ${theme.navBg} backdrop-blur-md font-mono text-xs sm:text-sm font-bold uppercase`}>
-            <button onClick={() => setActiveTab('home')} className={`${theme.navButton} text-center transition-colors ${activeTab === 'home' ? theme.accent : `hover:${theme.surface}`}`}>
-              {t.home}
-            </button>
-            <button onClick={() => setActiveTab('hotel')} className={`${theme.navButton} text-center transition-colors border-l-2 border-r-2 md:border-l-0 md:border-r-0 ${theme.border} ${activeTab === 'hotel' ? theme.accent : `hover:${theme.surface}`}`}>
-              {t.hotel}
-            </button>
-            <button onClick={() => setActiveTab('analytics')} className={`${theme.navButton} text-center transition-colors ${activeTab === 'analytics' ? theme.accent : `hover:${theme.surface}`}`}>
-              {t.analytics}
-            </button>
-          </div>
-
           {activeTab === 'analytics' ? (
             <div className={`border-2 ${theme.border} p-6 md:p-12 animate-in fade-in`}>
-              <h2 className="font-display text-4xl mb-8 border-b-2 border-dashed border-[var(--accent)] pb-2 inline-block">// TELEMETRIA</h2>
+              <h2 className="font-display text-4xl mb-8 border-b-2 border-dashed border-[var(--accent)] pb-2 inline-block">// {t.analyticsTitle}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
                 <div className={`border-2 ${theme.border} p-8 flex flex-col items-start`}>
@@ -1027,18 +1069,18 @@ const App = () => {
                           {isExpanded ? '[-]' : '[+]'}
                         </div>
                         <div className="flex-1 flex flex-col md:flex-row md:items-baseline md:gap-4">
-                          <h2 className="font-display text-2xl md:text-3xl tracking-wide">{dayData.day}</h2>
+                          <h2 className="font-display text-2xl md:text-3xl tracking-wide">{t.days[index] || dayData.day}</h2>
                           <div className="flex items-center gap-2 mt-1 md:mt-0 flex-wrap">
                             <span className={`font-mono text-[10px] font-bold uppercase ${theme.muted}`}>// {dayData.focus}</span>
                             <span className={`font-mono text-[9px] font-bold uppercase ${theme.muted}`}>[{dayData.session}]</span>
-                            {isToday && <span className="bg-[var(--accent)] text-black text-[9px] px-1.5 py-0.5 font-bold font-mono">ACTV</span>}
+                            {isToday && <span className="bg-[var(--accent)] text-black text-[9px] px-1.5 py-0.5 font-bold font-mono">{t.active}</span>}
                           </div>
                         </div>
                       </div>
                       
                       <div className="hidden md:flex flex-col items-end w-32 shrink-0 font-mono">
                         <span className={`text-[10px] mb-1 font-bold ${progress === 100 ? 'text-[var(--accent)]' : theme.text}`}>
-                          PRG: {progress}%
+                          {t.progress}: {progress}%
                         </span>
                         <div className={`w-full h-1 ${theme.inputBg}`}>
                           <div className="h-full bg-[var(--accent)] transition-all duration-500" style={{ width: `${progress}%` }}></div>
@@ -1055,7 +1097,7 @@ const App = () => {
                         
                         {jetLagMode && (
                           <div className="mb-6 p-3 border-l-4 border-[var(--accent)] bg-[var(--accent)]/10 font-mono text-[10px] uppercase leading-relaxed">
-                            <strong>[ALERTA TÁTICO]:</strong> Modo Jet Lag ativado. Séries limitadas (MAX 2). Executar com precisão.
+                            <strong>{t.jetLagAlertTitle}</strong> {t.jetLagAlertBody}
                           </div>
                         )}
 
@@ -1141,7 +1183,7 @@ const App = () => {
                                     
                                     <div>
                                       <div className="flex justify-between font-mono text-[10px] font-bold uppercase mb-2">
-                                        <span className={theme.muted}>EXECUÇÃO</span>
+                                        <span className={theme.muted}>{t.execution}</span>
                                         <span className={isCompleted ? "text-[var(--accent)]" : ""}>{completedCount}/{numSets}</span>
                                       </div>
                                       <div className="flex gap-2">
@@ -1163,7 +1205,7 @@ const App = () => {
                                     {!ex.noWeight && (
                                     <div>
                                       <label className="font-mono text-[10px] font-bold uppercase mb-2 block text-zinc-500">
-                                        CARGA [KG/LB]
+                                        {t.load}
                                       </label>
                                       <input 
                                         type="text" 
@@ -1208,7 +1250,7 @@ const App = () => {
               <button onClick={() => adjustTimer(-15)} className={`hidden sm:block px-3 py-2 border-2 ${theme.border} hover:bg-white hover:text-black transition-colors`}>-15</button>
               <button onClick={() => adjustTimer(30)} className={`hidden sm:block px-3 py-2 border-2 ${theme.border} hover:bg-white hover:text-black transition-colors`}>+30</button>
               <button onClick={() => setTimer(prev => ({ ...prev, active: !prev.active }))} className={`px-4 py-2 border-2 transition-colors ${timer.active && timer.time > 0 ? 'border-amber-400 text-amber-400' : 'border-[var(--accent)] text-[var(--accent)]'}`}>
-                {timer.active && timer.time > 0 ? '[PAUSA]' : '[PLAY]'}
+                {timer.active && timer.time > 0 ? t.pause : t.play}
               </button>
               <button onClick={() => setTimer({ active: false, time: 0, total: 60 })} className={`px-4 py-2 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors`}>
                 [X]
