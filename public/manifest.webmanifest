@@ -1,0 +1,19 @@
+{
+  "name": "Hybrid Fit Daily Training",
+  "short_name": "Hybrid Fit",
+  "description": "Offline-first daily training cockpit for home, hotel, beginner cues, progressive overload, and habit consistency.",
+  "start_url": "/meu-treino-abb/",
+  "scope": "/meu-treino-abb/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F0E8",
+  "theme_color": "#2F6F5E",
+  "icons": [
+    {
+      "src": "/meu-treino-abb/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

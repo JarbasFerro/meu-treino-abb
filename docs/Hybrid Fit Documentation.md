@@ -11,7 +11,7 @@ The application was conceived not as a "generic fitness app", but as an energy a
 * **Routine:** Highly fluctuating, with frequent corporate travel throughout Europe.  
 * **Biotype:** 1.91m tall and 75kg. Lean body with long limbs (extensive levers).  
 * **Strength Restrictions:** Reasonable base strength in the legs, but with a relative strength deficit in the arms and *core* (initial difficulty with conventional push-ups).  
-* **Available Time:** Exactly 45 minutes daily, 7 days a week.
+* **Available Time:** Exactly 50 minutes daily, 7 days a week.
 
 ## **2\. Biomechanical Foundation of the Training**
 
@@ -21,7 +21,7 @@ The training structure was designed to fill the strength gaps of a tall and lean
 
 Individuals at 1.91m need to move the weight over a much greater distance than shorter people. For the same load, the physical "Work" executed is greater.
 
-* **Adopted Strategy (Time Under Tension):** The main focus of the application is to instruct the user to perform **slow descents (3 to 5 seconds)** instead of just focusing on the weight. The eccentric phase builds more base strength and protects the joints.
+* **Adopted Strategy (Supported Strength + Mobility):** The main focus of the application is to keep the 40-minute resistance/functional block precise while protecting the spine with supported bench positions, controlled eccentrics, and a daily 10-minute mobility cooldown.
 
 ### **2.2. Overload Adaptation (Push-ups)**
 
@@ -41,12 +41,12 @@ The premise of **Hybrid Fit** is that consistency beats sporadic intensity. To e
 ### **3.1. BASE Mode \[HOME\]**
 
 * **Physical Setup:** Uses premium residential equipment: Bowflex 5.1s Adjustable Bench and Bowflex SelectTech 552i Dumbbells.  
-* **Focus:** Classic hypertrophy (10-12 repetitions). The quick adjustment via the dumbbell *dial* is assumed to maintain the strict 60-second rest.
+* **Focus:** A 7-day plan sourced from `docs/Training Plan`: push, quad-focused legs, supported pull, active recovery/deep core, shoulders/arms/core, glute-ham legs, and Sunday recovery. Each session contains 40 minutes of targeted resistance or functional work plus 10 minutes of mobility.
 
 ### **3.2. FIELD Mode \[HOTEL\]**
 
 * **Physical Setup:** No equipment (Bodyweight), using hotel furniture (bed, chair, wall, towels, luggage).  
-* **Focus:** Metabolic tension and isometrics (Sets of up to 20 repetitions or until failure). Focuses on joint mobility to combat flight fatigue.
+* **Focus:** Bodyweight and travel-friendly equivalents that preserve the same daily focus, 50-minute structure, rest cadence, and mobility emphasis when bench and dumbbells are unavailable.
 
 ### **3.3. "Jet Lag" Mode**
 
@@ -54,27 +54,27 @@ A crucial interface feature. By pressing the \[JET LAG\] button, the application
 
 ## **4\. UI / UX Philosophy (Frontend Design)**
 
-The design deliberately moves away from the "soft/friendly" aesthetics typical of B2C fitness apps (white backgrounds, rounded corners, soft gradients).
+The design is organized around execution speed, mobile ergonomics, and beginner confidence.
 
-### **4.1. Aesthetics: Tactical Brutalism**
+### **4.1. Aesthetics: Daily Cockpit**
 
-* **Concept:** The interface emulates an "Engineering Telemetry Panel" or a tactical military display. It is serious, dark, and focused solely on the task.  
-* **Color Palette:** A nearly black Slate-900 background, violently contrasting with details in **Lime/Cyber Yellow (\#CCFF00)**. The neon yellow directs the eye straight to where action is needed (set buttons and timer).  
-* **Typography:**  
-  * Bebas Neue: For giant, compressed headers (visual impact).  
-  * JetBrains Mono: For all data, timers, and set logs (reinforces the "system data" feel).  
-* **Texture:** A base64 SVG (grain-overlay) with mix-blend-mode was injected, applying a static "noise" over the entire screen, giving it a physical hardware aesthetic instead of web software.
+* **Concept:** The first active surface is a today-first cockpit with the current focus, completion percentage, completed sets, streak, next exercise, and fast actions for starting, switching to Hotel mode, or enabling Low Energy mode.  
+* **Color Palette:** A warm paper base, dark text, and green action accent keep the interface calmer and easier to scan during training while preserving a distinct product identity.  
+* **Typography:** Archivo carries the main interface with clear, compact headings. JetBrains Mono remains for technical labels, timer controls, and compact metrics.
 
-### **4.2. Friction Elimination (No-Icon Policy)**
+### **4.2. Beginner Guidance**
 
-SVG icon files (lucide-react) were replaced by **Monospaced Typography in brackets** (e.g., \[SWAP\], \[PLAY\], \[MUTE\]). This brings two benefits:
+Each exercise can expand into a guidance panel with:
 
-1. **Aesthetics:** Increases the "Cyberpunk/Terminal" feel.  
-2. **Performance:** Eliminates the need to load external libraries, ensuring the Web App loads almost instantly, even on 3G from a remote airport.
+* the specific exercise instruction from the training plan,  
+* beginner cues,  
+* common mistakes to avoid,  
+* setup notes for home or hotel execution,  
+* and a progression rule for either weighted or bodyweight movements.
 
 ## **5\. Technology Stack and Architecture**
 
-The application was built as a single-page **SPA (Single Page Application)** with offline-friendly local persistence for resilience during network failures. It does not currently include a service worker or web app manifest.
+The application was built as a single-page **SPA (Single Page Application)** with offline-friendly local persistence for resilience during network failures. It includes a web app manifest and a service worker so the app shell can be installed and cached for offline use.
 
 ### **5.1. Frontend**
 
@@ -92,10 +92,14 @@ The application was built as a single-page **SPA (Single Page Application)** wit
 
 Data persistence (Set Progress, Consistency History, and *Progressive Overload* Weight Tracking) is managed with a dual redundancy approach:
 
-1. **Tier 1: Firebase Firestore (Cloud):** When a Firebase configuration is injected into the runtime, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for real-time synchronization. Data is saved in the cloud in the private artifacts collection (/artifacts/appId/users/userId/app\_data/workout\_data).  
+1. **Tier 1: Firebase Firestore (Cloud):** When Vite Firebase environment variables are configured, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for real-time synchronization. Data is saved separately for Jarbas and Isabella under /workout_profiles/{profileId}/app_data/workout_data. The required Vite variables are documented in .env.example.  
 2. **Tier 2: LocalStorage (Offline Fallback):**  
-   The Web App keeps local copies of training state in window.localStorage. If Firebase is unavailable or not configured, it loads and saves data locally so workout tracking remains usable offline.
+   The Web App keeps profile-scoped local copies of training state in window.localStorage. If Firebase is unavailable or not configured, it loads and saves data locally so workout tracking remains usable offline. Older local storage keys are migrated into the new Hybrid Fit keys the first time a profile is selected.
 
-### **5.4. Analytical Engine (Heatmap)**
+### **5.4. Firebase Rules**
+
+The Firestore security model is intentionally simple for a private family app. Authentication is anonymous, and rules restrict reads and writes to the two expected profile documents: Jarbas and Isabella. The selector separates profile data, but it is not a login barrier; anyone with the URL can select either profile.
+
+### **5.5. Analytical Engine (Heatmap)**
 
 The interface has native JavaScript logic that computes the keys of the training state dictionary and cross-references them with the last 14 days of the Date() object. This generates the consistency *Heatmap* (similar to GitHub's) and calculates the current "Streak", using the premise that data gamification increases routine adherence.
