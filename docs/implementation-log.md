@@ -2,6 +2,22 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Local-first reliability stabilization
+
+- Added Playwright browser tests for profile selection, legacy localStorage migration, active-session refresh, set logging, JSON/CSV export, invalid import rejection, valid import, and offline shell refresh.
+- Added profile-backup validation before import so malformed JSON, missing critical fields, invalid field shapes, and unknown profile IDs are rejected before replacing selected-profile data.
+- Changed PR detection to compare current active-session load against a baseline captured at session start; personal records now update when a set is completed rather than while typing load.
+- Kept completed-set and weight key formats unchanged while making logged set rows update when exercise-level weight, RPE, or note values change.
+- Compacted repeated pending `profileData` Firebase backup mutations in the IndexedDB outbox so only the latest snapshot per profile remains queued.
+- Updated storage status handling to warn for temporary persistence or high quota usage, and refreshed internal documentation to describe IndexedDB as the local source of truth.
+
+## 2026-05-26 - Deep research backlog audit
+
+- Compared `docs/deep-research-report.md` against the current repo implementation.
+- Confirmed the core local-first foundation is already present: IndexedDB profile data, Workbox PWA build, optional Firebase outbox, persistent-storage request, Low Energy fallback, notes/RPE/PRs, and import/export.
+- Rebuilt `docs/next-steps.md` into a prioritized research-backed backlog covering reliability, Today/session execution, travel adaptation, beginner guidance, habit design, progress analytics, optional accountability, and engineering quality.
+- Recorded product principles that future changes should preserve, including Today-first execution, travel as a first-class mode, Low Energy as valid training, and avoiding shame-based or cloud-required patterns.
+
 ## 2026-05-26 - Core PWA best-practices upgrade
 
 - Added IndexedDB as the local source of truth through `hybridFitDb`, with `profileData`, `syncOutbox`, and `appMeta` stores.

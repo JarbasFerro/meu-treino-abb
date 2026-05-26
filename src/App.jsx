@@ -22,6 +22,7 @@ import {
   readBoolStorage,
   saveOutboxMutation,
   saveProfileData,
+  validateProfileBackup,
 } from './storage/workoutStorage.js';
 
 let app, auth, db;
@@ -93,6 +94,7 @@ const App = () => {
   const [storageStatus, setStorageStatus] = useState({ persisted: false, pending: 0, estimate: null });
   const [updateReady, setUpdateReady] = useState(false);
   const [pendingImportData, setPendingImportData] = useState(null);
+  const [importError, setImportError] = useState('');
   const [timer, setTimer] = useState({ active: false, time: 0, total: 60 });
 
   const hasLoadedCloudData = useRef(false);
@@ -105,7 +107,7 @@ const App = () => {
   const workoutData = useMemo(() => createWorkoutData(t, workoutTranslations[lang] || {}), [lang, t]);
   const selectedProfileLabel = PROFILES.find((profile) => profile.id === selectedProfile)?.label || '';
 
-  const applyWorkoutData = useCallback((data) => {
+  const applyWorkoutData = useCallback((data, options = {}) => {
     setCompletedSets(data.completedSets || {});
     setWeights(data.weights || {});
     setWorkoutHistory(data.workoutHistory || {});
@@ -115,6 +117,7 @@ const App = () => {
     setRpeLog(data.rpeLog || {});
     setPersonalRecords(data.personalRecords || {});
     setSetLog(data.setLog || {});
+    if (options.resumeActiveSession && data.activeSession) setActiveView('session');
   }, []);
 
   const buildProfileSnapshot = useCallback(() => ({
@@ -191,7 +194,7 @@ const App = () => {
           getOutboxCount().catch(() => 0),
         ]);
         if (!isMounted) return;
-        applyWorkoutData(localProfileData);
+        applyWorkoutData(localProfileData, { resumeActiveSession: true });
         hasLoadedLocalData.current = true;
         setStorageStatus({ persisted: storageResult.persisted, pending, estimate });
       } catch (error) {
@@ -396,10 +399,17 @@ const App = () => {
       setPersonalRecords((prev) => {
         const current = prev[exerciseKey] || {};
         const completedForExercise = getCompletedCount(dayIndex, sessionMode, exIndex, getSetCount(exercise, jetLagMode)) + 1;
+        const numericLoad = Number.parseFloat(weights[exerciseKey]);
         return {
           ...prev,
           [exerciseKey]: {
             ...current,
+            ...(Number.isFinite(numericLoad) && numericLoad > (current.bestLoad || 0)
+              ? {
+                  bestLoad: numericLoad,
+                  bestLoadAt: new Date().toISOString(),
+                }
+              : {}),
             bestSetCount: Math.max(current.bestSetCount || 0, completedForExercise),
             updatedAt: new Date().toISOString(),
           },
@@ -408,40 +418,46 @@ const App = () => {
     }
   };
 
+  const updateLoggedSetValues = (exerciseKey, patch) => {
+    setSetLog((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      Object.keys(next).forEach((setKey) => {
+        if (!setKey.startsWith(`${exerciseKey}-`)) return;
+        next[setKey] = { ...next[setKey], ...patch };
+        changed = true;
+      });
+      return changed ? next : prev;
+    });
+  };
+
   const updateWeight = (dayIndex, sessionMode, exIndex, value) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}`;
     setWeights((prev) => ({ ...prev, [key]: value }));
-    const numericLoad = Number.parseFloat(value);
-    if (!Number.isFinite(numericLoad)) return;
-    setPersonalRecords((prev) => {
-      const current = prev[key] || {};
-      if ((current.bestLoad || 0) >= numericLoad) return prev;
-      return {
-        ...prev,
-        [key]: {
-          ...current,
-          bestLoad: numericLoad,
-          bestLoadAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      };
-    });
+    updateLoggedSetValues(key, { weight: value });
   };
 
   const updateExerciseNote = (dayIndex, sessionMode, exIndex, value) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}`;
     setExerciseNotes((prev) => ({ ...prev, [key]: value }));
+    updateLoggedSetValues(key, { note: value });
   };
 
   const updateRpe = (dayIndex, sessionMode, exIndex, value) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}`;
     setRpeLog((prev) => ({ ...prev, [key]: value }));
+    updateLoggedSetValues(key, { rpe: value });
   };
 
   const getExerciseStats = (dayIndex, sessionMode, exIndex) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}`;
     const currentWeight = weights[key] || '';
     const record = personalRecords[key] || {};
+    const isActiveExercise = activeSession?.dayIndex === dayIndex
+      && activeSession?.mode === sessionMode
+      && activeSession?.exerciseIndex === exIndex;
+    const baselineRecord = isActiveExercise ? activeSession?.baselineRecords?.[key] : null;
+    const bestBeforeSession = isActiveExercise ? (baselineRecord?.bestLoad || 0) : (record.bestLoad || 0);
     return {
       key,
       currentWeight,
@@ -449,7 +465,7 @@ const App = () => {
       rpe: rpeLog[key] || '',
       bestLoad: record.bestLoad || '',
       bestSetCount: record.bestSetCount || 0,
-      isPr: Number.parseFloat(currentWeight) > 0 && Number.parseFloat(currentWeight) >= (record.bestLoad || 0),
+      isPr: Number.parseFloat(currentWeight) > 0 && Number.parseFloat(currentWeight) > bestBeforeSession,
     };
   };
 
@@ -505,17 +521,33 @@ const App = () => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    const text = await file.text();
-    setPendingImportData(JSON.parse(text));
+    setImportError('');
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const validation = validateProfileBackup(parsed);
+      if (!validation.valid) {
+        setImportError(t.importInvalid);
+        return;
+      }
+      setPendingImportData(parsed);
+    } catch {
+      setImportError(t.importParseError);
+    }
   };
 
   const confirmImportProfile = async () => {
     if (!selectedProfile || !pendingImportData) return;
-    const imported = await importProfile(selectedProfile, pendingImportData);
-    applyWorkoutData(imported);
-    setPendingImportData(null);
-    const pending = await getOutboxCount();
-    setStorageStatus((prev) => ({ ...prev, pending }));
+    try {
+      const imported = await importProfile(selectedProfile, pendingImportData);
+      applyWorkoutData(imported);
+      setPendingImportData(null);
+      setImportError('');
+      const pending = await getOutboxCount();
+      setStorageStatus((prev) => ({ ...prev, pending }));
+    } catch {
+      setImportError(t.importInvalid);
+    }
   };
 
   const getCompletedCount = (dayIndex, sessionMode, exIndex, totalSets) => {
@@ -641,13 +673,13 @@ const App = () => {
 
   const startSession = (lowEnergy = jetLagMode) => {
     setJetLagMode(lowEnergy);
-    setActiveSession({ dayIndex: currentDayIndex, mode, exerciseIndex: 0, currentSetIndex: 0, lowEnergy, startedAt: new Date().toISOString() });
+    setActiveSession({ dayIndex: currentDayIndex, mode, exerciseIndex: 0, currentSetIndex: 0, lowEnergy, baselineRecords: personalRecords, startedAt: new Date().toISOString() });
     setActiveView('session');
     setExpandedInfo(null);
   };
 
   const openDaySession = (dayIndex) => {
-    setActiveSession({ dayIndex, mode, exerciseIndex: 0, currentSetIndex: 0, lowEnergy: jetLagMode, startedAt: new Date().toISOString() });
+    setActiveSession({ dayIndex, mode, exerciseIndex: 0, currentSetIndex: 0, lowEnergy: jetLagMode, baselineRecords: personalRecords, startedAt: new Date().toISOString() });
     setActiveView('session');
     setExpandedInfo(null);
   };
@@ -684,6 +716,10 @@ const App = () => {
     const index = exercises.indexOf(loaded);
     return `${loaded.name}: ${weights[`${currentDayIndex}-${mode}-${index}`]}`;
   })();
+  const storageUsageRatio = storageStatus.estimate?.quota
+    ? (storageStatus.estimate.usage || 0) / storageStatus.estimate.quota
+    : 0;
+  const hasStorageWarning = !storageStatus.persisted || storageUsageRatio > 0.85;
 
   const StatusHeader = () => (
     <header className="sticky top-0 z-30 border-b border-[#D8CFBE] bg-[#F4F0E8]/95 px-4 py-3 backdrop-blur-xl">
@@ -697,8 +733,8 @@ const App = () => {
                 {isSynced ? t.syncOnline : t.syncOffline}
               </span>
             )}
-            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${storageStatus.persisted ? 'bg-[#EAF1EA] text-[#17352D]' : 'bg-[#FFF8E8] text-[#654C12]'}`}>
-              {storageStatus.persisted ? t.storagePersistent : t.storageTemporary}
+            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${hasStorageWarning ? 'bg-[#FFF8E8] text-[#654C12]' : 'bg-[#EAF1EA] text-[#17352D]'}`}>
+              {storageUsageRatio > 0.85 ? t.storageLow : storageStatus.persisted ? t.storagePersistent : t.storageTemporary}
             </span>
             {storageStatus.pending > 0 && (
               <span className="rounded-full bg-[#FFF8E8] px-2 py-1 text-[9px] font-black uppercase text-[#654C12]">
@@ -830,6 +866,7 @@ const App = () => {
             <button onClick={handleExportCsv} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black">{t.exportCsv}</button>
             <button onClick={() => document.getElementById('profile-import-file')?.click()} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black">{t.importJson}</button>
           </div>
+          {importError && <p className="mt-3 rounded-2xl bg-[#FFF0EC] px-4 py-3 text-sm font-black text-[#A6422F]">{importError}</p>}
           <input id="profile-import-file" type="file" accept="application/json,.json" onChange={handleImportFile} className="hidden" />
         </section>
       </main>
@@ -1055,7 +1092,7 @@ const App = () => {
               <h3 className="text-2xl font-black text-[#171915]">{t.importConfirmTitle}</h3>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-[#626A5E]">{t.importConfirmBody}</p>
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button onClick={() => setPendingImportData(null)} className="min-h-12 rounded-2xl border border-[#D8CFBE] font-black">{t.cancel}</button>
+                <button onClick={() => { setPendingImportData(null); setImportError(''); }} className="min-h-12 rounded-2xl border border-[#D8CFBE] font-black">{t.cancel}</button>
                 <button onClick={confirmImportProfile} className="min-h-12 rounded-2xl bg-[#17352D] font-black text-white">{t.importJson}</button>
               </div>
             </div>

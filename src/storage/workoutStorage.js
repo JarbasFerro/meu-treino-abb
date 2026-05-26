@@ -30,6 +30,7 @@ const PROFILE_STORE = 'profileData';
 const OUTBOX_STORE = 'syncOutbox';
 const META_STORE = 'appMeta';
 const STORAGE_VERSION = 2;
+const REQUIRED_PROFILE_OBJECTS = ['completedSets', 'weights', 'workoutHistory', 'swappedExercises'];
 
 export const getProfileKeys = (profileId) => ({
   completedSets: `hybridFitWorkoutProgress:${profileId}`,
@@ -93,6 +94,40 @@ export const normalizeProfileData = (profileId, data = {}) => ({
   updatedAt: data.updatedAt || new Date().toISOString(),
 });
 
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+export const validateProfileBackup = (data) => {
+  if (!isPlainObject(data)) {
+    return { valid: false, reason: 'notObject' };
+  }
+
+  const missingField = REQUIRED_PROFILE_OBJECTS.find((field) => !(field in data));
+  if (missingField) {
+    return { valid: false, reason: 'missingField', field: missingField };
+  }
+
+  const invalidObjectField = [
+    ...REQUIRED_PROFILE_OBJECTS,
+    'exerciseNotes',
+    'rpeLog',
+    'personalRecords',
+    'setLog',
+  ].find((field) => field in data && !isPlainObject(data[field]));
+  if (invalidObjectField) {
+    return { valid: false, reason: 'invalidField', field: invalidObjectField };
+  }
+
+  if ('activeSession' in data && data.activeSession !== null && !isPlainObject(data.activeSession)) {
+    return { valid: false, reason: 'invalidField', field: 'activeSession' };
+  }
+
+  if ('profileId' in data && !PROFILES.some((profile) => profile.id === data.profileId)) {
+    return { valid: false, reason: 'unknownProfile' };
+  }
+
+  return { valid: true };
+};
+
 const getDb = () => openDB(DB_NAME, DB_VERSION, {
   upgrade(db) {
     if (!db.objectStoreNames.contains(PROFILE_STORE)) {
@@ -154,13 +189,24 @@ export const saveProfileData = async (profileId, patch = {}) => {
 
 export const saveOutboxMutation = async (profileId, mutation = {}) => {
   const db = await getDb();
+  const type = mutation.type || 'profileData';
   const record = {
     profileId,
-    type: mutation.type || 'profileData',
+    type,
     data: mutation.data || {},
     createdAt: new Date().toISOString(),
     attempts: 0,
   };
+
+  if (type === 'profileData') {
+    const existing = await db.getAllFromIndex(OUTBOX_STORE, 'profileId', profileId);
+    await Promise.all(
+      existing
+        .filter((item) => item.type === type)
+        .map((item) => db.delete(OUTBOX_STORE, item.id)),
+    );
+  }
+
   return db.add(OUTBOX_STORE, record);
 };
 
@@ -190,6 +236,13 @@ export const flushSyncOutbox = async (syncFn) => {
 export const exportProfile = async (profileId) => loadProfileData(profileId);
 
 export const importProfile = async (profileId, data) => {
+  const validation = validateProfileBackup(data);
+  if (!validation.valid) {
+    const error = new Error(validation.reason);
+    error.validation = validation;
+    throw error;
+  }
+
   const imported = normalizeProfileData(profileId, {
     ...data,
     importedAt: new Date().toISOString(),

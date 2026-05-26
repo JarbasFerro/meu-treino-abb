@@ -90,11 +90,11 @@ The application was built as a single-page **SPA (Single Page Application)** wit
 
 ### **5.3. Hybrid Backend (Offline-First)**
 
-Data persistence (Set Progress, Consistency History, and *Progressive Overload* Weight Tracking) is managed with a dual redundancy approach:
+Data persistence (Set Progress, Consistency History, and *Progressive Overload* Weight Tracking) is managed with a local-first redundancy approach:
 
-1. **Tier 1: Firebase Firestore (Cloud):** When Vite Firebase environment variables are configured, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for real-time synchronization. Data is saved separately for Jarbas and Isabella under /workout_profiles/{profileId}/app_data/workout_data. The required Vite variables are documented in .env.example.  
-2. **Tier 2: LocalStorage (Offline Fallback):**  
-   The Web App keeps profile-scoped local copies of training state in window.localStorage. If Firebase is unavailable or not configured, it loads and saves data locally so workout tracking remains usable offline. Older local storage keys are migrated into the new Hybrid Fit keys the first time a profile is selected.
+1. **Tier 1: IndexedDB (Local Source of Truth):** Workout state lives first in the `hybridFitDb` IndexedDB database. Profile data, active sessions, completed sets, weights, notes, RPE, personal records, and set logs are loaded and saved locally before any cloud backup is attempted. Existing legacy localStorage workout keys are migrated into IndexedDB without deleting the old keys.
+2. **Tier 2: Firebase Firestore (Optional Backup):** When Vite Firebase environment variables are configured, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for backup synchronization. Data is saved separately for Jarbas and Isabella under /workout_profiles/{profileId}/app_data/workout_data. Failed backup writes remain in a local IndexedDB outbox and retry while the app is open or comes back online.
+3. **Preference Storage:** window.localStorage is intentionally limited to tiny preferences that must be readable before IndexedDB opens: selected profile, language, quiet mode, and Low Energy / Jet Lag mode.
 
 ### **5.4. Firebase Rules**
 
