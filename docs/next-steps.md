@@ -24,6 +24,10 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P1 - Today And Active-Session Execution
 
+- Optimize the whole PWA specifically for iPhone 15 Pro screen real estate as the only target device: validate against its viewport, safe areas, dynamic island/top inset, and one-handed thumb reach.
+- Expand the app surface all the way to the top of the screen while respecting the iOS protected zone around the dynamic island; avoid wasted top padding and ensure the sticky header/status row feels native in standalone PWA mode.
+- Reduce the bottom navigation height and visual weight so it occupies less vertical space while keeping 44px+ reliable tap targets and safe-area bottom padding.
+- Re-check rest timer, sticky primary session actions, and bottom navigation together on iPhone 15 Pro so they do not stack into an oversized lower control area.
 - Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
 - Improve session finish summaries with clearer best lift/core note selection once richer per-exercise history views exist.
 - Continue one-handed active-session polish after physical iPhone testing, especially sticky action placement with active rest timer and bottom navigation.
@@ -78,5 +82,5 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 - Code-split Firebase or lazy-load optional backup sync to reduce the production bundle.
 - Review Workbox runtime caching after media assets exist: shell precache, navigation fallback, stale-while-revalidate static assets, and predictable offline behavior.
 - Add a hard-coded string audit script for app UI copy outside `src/data/i18n.js` and workout data.
-- Add Playwright or browser-based visual checks for iPhone widths, safe-area bottom nav, timer controls, import modal, and active-session long strings in PT/EN/ES.
+- Add Playwright or browser-based visual checks for iPhone 15 Pro dimensions, safe-area top/dynamic-island spacing, compact bottom nav, timer controls, import modal, and active-session long strings in PT/EN/ES.
 - Add performance budgets for app shell size and first usable Today render.

@@ -2,6 +2,12 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - iPhone 15 Pro UI backlog update
+
+- Added next-step requirements to optimize the PWA specifically for iPhone 15 Pro as the target device.
+- Captured the need to use the full top screen area while respecting the dynamic island protected zone.
+- Added compact bottom navigation and lower-control stacking checks to the execution-flow backlog and visual test backlog.
+
 ## 2026-05-26 - Execution flow upgrade
 
 - Added 15, 30, and 50 minute session starts, with deterministic set caps for shorter sessions and Low Energy remaining a separate habit-preserving mode.
