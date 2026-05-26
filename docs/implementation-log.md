@@ -8,6 +8,15 @@ Future agents must read this file before making code changes. Append a dated ent
 - Captured the need to use the full top screen area while respecting the dynamic island protected zone.
 - Added compact bottom navigation and lower-control stacking checks to the execution-flow backlog and visual test backlog.
 
+## 2026-05-26 - iPhone 15 Pro screen optimization
+
+- Updated the PWA viewport and Apple standalone metadata for edge-to-edge display with `viewport-fit=cover` and translucent iOS status bar behavior.
+- Added global safe-area and control-stack CSS variables for top inset, bottom inset, compact tab rail height, sticky session actions, and rest timer offsets.
+- Compressed the app shell for the target iPhone 15 Pro viewport: compact safe-area-aware status strip, narrower mobile content width, reduced Today spacing, and a shorter three-tab bottom rail with 44px+ tap targets.
+- Rebalanced lower active-session controls so warm-up actions, session actions, rest timer, and bottom navigation do not overlap on the iPhone 15 Pro-sized viewport.
+- Updated Playwright's mobile project to iPhone 15 Pro dimensions and added visual/geometry coverage for Today, warm-up, active session with rest timer, compact nav tap targets, and PT/EN/ES header/nav containment.
+- Verified with `npm run lint`, `npm run build`, and `npm run test:e2e`; the existing production bundle-size warning remains as a later engineering-quality item.
+
 ## 2026-05-26 - Execution flow upgrade
 
 - Added 15, 30, and 50 minute session starts, with deterministic set caps for shorter sessions and Low Energy remaining a separate habit-preserving mode.

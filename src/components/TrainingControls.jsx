@@ -22,18 +22,18 @@ export const BottomNav = ({ activeView, setActiveView, t }) => {
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D8CFBE] bg-[#FFFCF4]/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-xl grid-cols-3 gap-2">
+    <nav data-testid="bottom-nav" className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D8CFBE] bg-[#FFFCF4]/95 px-2 pb-[var(--safe-bottom)] pt-1 backdrop-blur-xl">
+      <div className="mx-auto grid h-[var(--nav-content-height)] max-w-md grid-cols-3 gap-1">
         {items.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveView(item.id)}
-            className={`flex min-h-14 flex-col items-center justify-center rounded-2xl text-xs font-black uppercase tracking-wide transition ${
+            className={`flex min-h-11 items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-black uppercase transition ${
               activeView === item.id ? 'bg-[#17352D] text-white' : 'text-[#626A5E]'
             }`}
           >
-            <span className="text-base leading-none">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="text-sm leading-none">{item.icon}</span>
+            <span className="truncate">{item.label}</span>
           </button>
         ))}
       </div>
@@ -85,31 +85,31 @@ export const ExerciseGuidance = ({ guidance, exercise, expanded, setExpanded, t 
   </section>
 );
 
-export const RestTimer = ({ timer, formatTime, adjustTimer, setTimer, t }) => {
+export const RestTimer = ({ timer, formatTime, adjustTimer, setTimer, t, elevated = false }) => {
   if (!timer.active && timer.time <= 0) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-[5.25rem] z-50 px-4">
-      <div className="mx-auto max-w-xl overflow-hidden rounded-3xl border border-[#17352D] bg-[#17352D] text-white shadow-2xl">
+    <div data-testid="rest-timer" className="fixed inset-x-0 z-50 px-3" style={{ bottom: elevated ? 'var(--timer-elevated-bottom)' : 'var(--timer-bottom)' }}>
+      <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-[#17352D] bg-[#17352D] text-white shadow-2xl">
         <div
           className="h-1 bg-[#9AD0B1] transition-all duration-1000"
           style={{ width: `${timer.total ? (timer.time / timer.total) * 100 : 0}%` }}
         />
-        <div className="flex items-center justify-between gap-3 p-4">
+        <div className="flex items-center justify-between gap-2 p-2">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#BBD8C9]">{t.rest}</p>
-            <p className="text-3xl font-black leading-none">{formatTime(timer.time)}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#BBD8C9]">{t.rest}</p>
+            <p className="text-2xl font-black leading-none">{formatTime(timer.time)}</p>
           </div>
-          <div className="flex gap-2 text-xs font-black">
-            <button onClick={() => adjustTimer(-15)} className="min-h-11 rounded-2xl border border-white/20 px-3">-15</button>
-            <button onClick={() => adjustTimer(30)} className="min-h-11 rounded-2xl border border-white/20 px-3">+30</button>
+          <div className="flex gap-1 text-[11px] font-black">
+            <button onClick={() => adjustTimer(-15)} className="min-h-11 rounded-xl border border-white/20 px-2">-15</button>
+            <button onClick={() => adjustTimer(30)} className="min-h-11 rounded-xl border border-white/20 px-2">+30</button>
             <button
               onClick={() => setTimer((prev) => ({ ...prev, active: !prev.active }))}
-              className="min-h-11 rounded-2xl bg-white px-4 text-[#17352D]"
+              className="min-h-11 rounded-xl bg-white px-3 text-[#17352D]"
             >
               {timer.active && timer.time > 0 ? t.pause : t.play}
             </button>
-            <button onClick={() => setTimer({ active: false, time: 0, total: 60 })} className="min-h-11 rounded-2xl border border-white/20 px-3">
+            <button onClick={() => setTimer({ active: false, time: 0, total: 60 })} className="min-h-11 rounded-xl border border-white/20 px-2">
               {t.close}
             </button>
           </div>

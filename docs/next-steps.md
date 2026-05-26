@@ -16,6 +16,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P0 - Reliability, Data Trust, And Validation
 
+- Validate the new iPhone 15 Pro layout on a physical Home Screen PWA install, including dynamic island safe-area behavior, standalone status bar color, compact header controls, rest timer stacking, and bottom home-indicator spacing.
 - Verify the IndexedDB migration on a real iPhone PWA install with existing localStorage data, then document the exact install, refresh, offline, and upgrade behavior.
 - Extend automated browser tests to cover additional PT/ES long-string states.
 - Run and document the IndexedDB migration path on a physical iPhone Home Screen PWA, not only desktop browser automation.
@@ -24,13 +25,10 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P1 - Today And Active-Session Execution
 
-- Optimize the whole PWA specifically for iPhone 15 Pro screen real estate as the only target device: validate against its viewport, safe areas, dynamic island/top inset, and one-handed thumb reach.
-- Expand the app surface all the way to the top of the screen while respecting the iOS protected zone around the dynamic island; avoid wasted top padding and ensure the sticky header/status row feels native in standalone PWA mode.
-- Reduce the bottom navigation height and visual weight so it occupies less vertical space while keeping 44px+ reliable tap targets and safe-area bottom padding.
-- Re-check rest timer, sticky primary session actions, and bottom navigation together on iPhone 15 Pro so they do not stack into an oversized lower control area.
 - Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
 - Improve session finish summaries with clearer best lift/core note selection once richer per-exercise history views exist.
-- Continue one-handed active-session polish after physical iPhone testing, especially sticky action placement with active rest timer and bottom navigation.
+- Continue one-handed active-session polish after physical iPhone testing, especially whether the compact three-column primary action row remains readable in Portuguese and Spanish during real use.
+- Revisit Today density after a week of use: decide whether the start buttons should move above secondary metrics so session start is visible earlier on the iPhone 15 Pro first viewport.
 - Add warm-up load suggestions for weighted exercises when enough history exists.
 
 ## P1 - Travel, Equipment, And Replacement Quality
@@ -82,5 +80,5 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 - Code-split Firebase or lazy-load optional backup sync to reduce the production bundle.
 - Review Workbox runtime caching after media assets exist: shell precache, navigation fallback, stale-while-revalidate static assets, and predictable offline behavior.
 - Add a hard-coded string audit script for app UI copy outside `src/data/i18n.js` and workout data.
-- Add Playwright or browser-based visual checks for iPhone 15 Pro dimensions, safe-area top/dynamic-island spacing, compact bottom nav, timer controls, import modal, and active-session long strings in PT/EN/ES.
+- Extend browser-based visual checks to include Progress import modal geometry and additional active-session long strings in PT/ES.
 - Add performance budgets for app shell size and first usable Today render.

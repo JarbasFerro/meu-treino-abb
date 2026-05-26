@@ -838,32 +838,32 @@ const App = () => {
   const hasStorageWarning = !storageStatus.persisted || storageUsageRatio > 0.85;
 
   const StatusHeader = () => (
-    <header className="sticky top-0 z-30 border-b border-[#D8CFBE] bg-[#F4F0E8]/95 px-4 py-3 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.statusTitle}</p>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-black leading-none text-[#171915]">Hybrid Fit</h1>
+    <header data-testid="status-header" className="sticky top-0 z-30 border-b border-[#D8CFBE] bg-[#F4F0E8]/95 px-3 pb-2 pt-[calc(var(--safe-top)+0.35rem)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-md items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#2F6F5E]">{t.statusTitle}</p>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1">
+            <h1 className="truncate text-lg font-black leading-none text-[#171915]">Hybrid Fit</h1>
             {firebaseInitialized && (
-              <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${isSynced ? 'bg-[#EAF1EA] text-[#17352D]' : 'bg-[#FFF0EC] text-[#A6422F]'}`}>
+              <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${isSynced ? 'bg-[#EAF1EA] text-[#17352D]' : 'bg-[#FFF0EC] text-[#A6422F]'}`}>
                 {isSynced ? t.syncOnline : t.syncOffline}
               </span>
             )}
-            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${hasStorageWarning ? 'bg-[#FFF8E8] text-[#654C12]' : 'bg-[#EAF1EA] text-[#17352D]'}`}>
+            <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${hasStorageWarning ? 'bg-[#FFF8E8] text-[#654C12]' : 'bg-[#EAF1EA] text-[#17352D]'}`}>
               {storageUsageRatio > 0.85 ? t.storageLow : storageStatus.persisted ? t.storagePersistent : t.storageTemporary}
             </span>
             {storageStatus.pending > 0 && (
-              <span className="rounded-full bg-[#FFF8E8] px-2 py-1 text-[9px] font-black uppercase text-[#654C12]">
+              <span className="rounded-full bg-[#FFF8E8] px-1.5 py-0.5 text-[8px] font-black uppercase text-[#654C12]">
                 {storageStatus.pending} {t.syncPending}
               </span>
             )}
           </div>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 text-xs font-black">
-          <button onClick={cycleLanguage} className="min-h-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-3 uppercase">[{lang}]</button>
-          <button onClick={() => setQuietMode(!quietMode)} className="min-h-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-3">{quietMode ? t.quietOn : t.quietOff}</button>
-          <button onClick={clearSelectedProfile} className="min-h-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-3">{selectedProfileLabel}</button>
-          <button onClick={() => setShowResetModal(true)} className="min-h-11 rounded-full border border-[#D9B8B0] bg-[#FFF8F6] px-3 text-[#A6422F]">{t.resetActionShort}</button>
+        <div className="flex shrink-0 justify-end gap-1 text-[10px] font-black">
+          <button onClick={cycleLanguage} className="min-h-11 min-w-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-2 uppercase">[{lang}]</button>
+          <button onClick={() => setQuietMode(!quietMode)} className="min-h-11 min-w-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-2">{quietMode ? t.quietOn : t.quietOff}</button>
+          <button onClick={clearSelectedProfile} className="min-h-11 max-w-16 truncate rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-2">{selectedProfileLabel}</button>
+          <button onClick={() => setShowResetModal(true)} className="min-h-11 min-w-11 rounded-full border border-[#D9B8B0] bg-[#FFF8F6] px-2 text-[#A6422F]">{t.resetActionShort}</button>
         </div>
       </div>
     </header>
@@ -872,12 +872,12 @@ const App = () => {
   const TodayView = () => {
     const next = todaySummary.nextExercise;
     return (
-      <main className="mx-auto max-w-5xl space-y-5 px-4 pb-36 pt-5">
-        <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5 shadow-[0_20px_80px_rgba(42,48,39,0.08)]">
+      <main className="mx-auto max-w-md space-y-4 px-3 pb-[calc(var(--nav-total-height)+1rem)] pt-3">
+        <section className="rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4] p-4 shadow-[0_20px_80px_rgba(42,48,39,0.08)]">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.cockpitEyebrow}</p>
-              <h2 className="mt-2 text-4xl font-black leading-[0.95] text-[#171915]">{workoutData[currentDayIndex].focus}</h2>
+              <h2 className="mt-2 text-3xl font-black leading-[0.95] text-[#171915]">{workoutData[currentDayIndex].focus}</h2>
               <p className="mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-[#626A5E]">{t.cockpitBody}</p>
             </div>
             <div className="sm:min-w-64"><ModeSwitch mode={mode} setMode={setMode} t={t} /></div>
@@ -908,23 +908,23 @@ const App = () => {
             </p>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-2">
             {DURATION_OPTIONS.map((duration) => (
               <button
                 key={duration}
                 onClick={() => startSession(duration, false)}
-                className={`min-h-14 rounded-2xl px-5 text-sm font-black ${sessionDuration === duration ? 'bg-[#17352D] text-white' : 'border border-[#D8CFBE] bg-white text-[#17352D]'}`}
+                className={`min-h-12 rounded-2xl px-4 text-sm font-black ${sessionDuration === duration ? 'bg-[#17352D] text-white' : 'border border-[#D8CFBE] bg-white text-[#17352D]'}`}
               >
                 {t[`duration${duration}`]}
               </button>
             ))}
-            <button onClick={() => startSession(sessionDuration, true)} className="min-h-14 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-5 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
-            {activeSession && <button onClick={() => setActiveView('session')} className="min-h-14 rounded-2xl border border-[#D8CFBE] bg-white px-5 text-sm font-black text-[#17352D]">{t.resumeSession}</button>}
+            <button onClick={() => startSession(sessionDuration, true)} className="min-h-12 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-4 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
+            {activeSession && <button onClick={() => setActiveView('session')} className="min-h-12 rounded-2xl border border-[#D8CFBE] bg-white px-4 text-sm font-black text-[#17352D]">{t.resumeSession}</button>}
           </div>
         </section>
 
         {finishSummary && (
-          <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5">
+          <section className="rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4] p-4">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.finishSummaryTitle}</p>
             <h3 className="mt-2 text-2xl font-black text-[#171915]">{finishSummary.completedSets}/{finishSummary.plannedSets} {t.setsDoneText}</h3>
             <p className="mt-2 text-sm font-semibold text-[#626A5E]">{t.finishSummaryBody}</p>
@@ -940,7 +940,7 @@ const App = () => {
           </section>
         )}
 
-        <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5">
+        <section className="rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4] p-4">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-black text-[#171915]">{t.todayPlan}</h3>
             {jetLagMode && <span className="rounded-full bg-[#FFF8E8] px-3 py-2 text-xs font-black text-[#654C12]">{t.lowEnergyOn}</span>}
@@ -952,7 +952,7 @@ const App = () => {
   };
 
   const PlanView = () => (
-    <main className="mx-auto max-w-5xl space-y-4 px-4 pb-36 pt-5">
+    <main className="mx-auto max-w-md space-y-4 px-3 pb-[calc(var(--nav-total-height)+1rem)] pt-3">
       <section className="flex flex-col gap-4 rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.navPlan}</p>
@@ -979,7 +979,7 @@ const App = () => {
     const vol = getVolumeData();
     const total = Object.values(vol).reduce((a, b) => a + b, 0) || 1;
     return (
-      <main className="mx-auto max-w-5xl space-y-5 px-4 pb-36 pt-5">
+      <main className="mx-auto max-w-md space-y-4 px-3 pb-[calc(var(--nav-total-height)+1rem)] pt-3">
         <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.navProgress}</p>
           <h2 className="text-3xl font-black text-[#171915]">{t.progressTitle}</h2>
@@ -1066,7 +1066,7 @@ const App = () => {
 
     if (activeSession.warmupDone === false) {
       return (
-        <main className="mx-auto max-w-3xl space-y-5 px-4 pb-36 pt-5">
+        <main className="mx-auto max-w-md space-y-4 px-3 pb-[calc(var(--nav-total-height)+1rem)] pt-3">
           <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5 shadow-[0_20px_80px_rgba(42,48,39,0.08)]">
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.activeSession}</p>
             <h2 className="mt-2 text-3xl font-black text-[#171915]">{t.warmupTitle}</h2>
@@ -1079,9 +1079,9 @@ const App = () => {
                 </div>
               ))}
             </div>
-            <div className="sticky bottom-[5.25rem] z-20 mt-6 grid gap-3 rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4]/95 p-3 shadow-2xl backdrop-blur-xl sm:grid-cols-2">
-              <button onClick={() => setActiveSession((prev) => ({ ...prev, warmupDone: true }))} className="min-h-14 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white">{t.warmupDone}</button>
-              <button onClick={() => setActiveSession((prev) => ({ ...prev, warmupDone: true }))} className="min-h-14 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black text-[#626A5E]">{t.skipWarmup}</button>
+            <div data-testid="sticky-actions" className="sticky z-20 mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-[#D8CFBE] bg-[#FFFCF4]/95 p-2 shadow-2xl backdrop-blur-xl" style={{ bottom: 'var(--sticky-action-bottom)' }}>
+              <button onClick={() => setActiveSession((prev) => ({ ...prev, warmupDone: true }))} className="min-h-12 rounded-2xl bg-[#17352D] px-2 text-xs font-black text-white">{t.warmupDone}</button>
+              <button onClick={() => setActiveSession((prev) => ({ ...prev, warmupDone: true }))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-2 text-xs font-black text-[#626A5E]">{t.skipWarmup}</button>
             </div>
           </section>
         </main>
@@ -1089,7 +1089,7 @@ const App = () => {
     }
 
     return (
-      <main className="mx-auto max-w-3xl space-y-5 px-4 pb-44 pt-5">
+      <main className="mx-auto max-w-md space-y-4 px-3 pb-[calc(var(--nav-total-height)+6.5rem)] pt-3">
         <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5 shadow-[0_20px_80px_rgba(42,48,39,0.08)]">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
@@ -1154,10 +1154,10 @@ const App = () => {
             })}
           </div>
 
-          <div className="sticky bottom-[5.25rem] z-20 mt-5 grid gap-3 rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4]/95 p-3 shadow-2xl backdrop-blur-xl sm:grid-cols-3">
-            <button disabled={exerciseIndex === 0} onClick={() => setActiveSession((prev) => ({ ...prev, exerciseIndex: Math.max(0, prev.exerciseIndex - 1) }))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black disabled:opacity-40">{t.previous}</button>
-            <button onClick={completeNextSet} className="min-h-12 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white">{completedCount >= totalSets ? t.nextExercise : t.completeSet}</button>
-            <button onClick={() => (exerciseIndex >= exercises.length - 1 ? finishSession() : setActiveSession((prev) => ({ ...prev, exerciseIndex: prev.exerciseIndex + 1 })))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black">{exerciseIndex >= exercises.length - 1 ? t.finishWorkout : t.nextExercise}</button>
+          <div data-testid="sticky-actions" className="sticky z-20 mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-[#D8CFBE] bg-[#FFFCF4]/95 p-2 shadow-2xl backdrop-blur-xl" style={{ bottom: 'var(--sticky-action-bottom)' }}>
+            <button disabled={exerciseIndex === 0} onClick={() => setActiveSession((prev) => ({ ...prev, exerciseIndex: Math.max(0, prev.exerciseIndex - 1) }))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-2 text-xs font-black disabled:opacity-40">{t.previous}</button>
+            <button onClick={completeNextSet} className="min-h-12 rounded-2xl bg-[#17352D] px-2 text-xs font-black text-white">{completedCount >= totalSets ? t.nextExercise : t.completeSet}</button>
+            <button onClick={() => (exerciseIndex >= exercises.length - 1 ? finishSession() : setActiveSession((prev) => ({ ...prev, exerciseIndex: prev.exerciseIndex + 1 })))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-2 text-xs font-black">{exerciseIndex >= exercises.length - 1 ? t.finishWorkout : t.nextExercise}</button>
           </div>
         </section>
 
@@ -1290,7 +1290,7 @@ const App = () => {
         {activeView === 'plan' && <PlanView />}
         {activeView === 'progress' && <ProgressView />}
         {activeView === 'session' && <SessionView />}
-        <RestTimer timer={timer} formatTime={formatTime} adjustTimer={adjustTimer} setTimer={setTimer} t={t} />
+        <RestTimer timer={timer} formatTime={formatTime} adjustTimer={adjustTimer} setTimer={setTimer} t={t} elevated={activeView === 'session' && activeSession?.warmupDone !== false} />
         <BottomNav activeView={activeView === 'session' ? 'today' : activeView} setActiveView={setActiveView} t={t} />
       </div>
     </>

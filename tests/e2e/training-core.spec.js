@@ -32,6 +32,10 @@ const waitForServiceWorker = async (page) => {
   });
 };
 
+const expectNoVerticalOverlap = (upperBox, lowerBox) => {
+  expect(upperBox.y + upperBox.height).toBeLessThanOrEqual(lowerBox.y + 1);
+};
+
 test.beforeEach(async ({ context }) => {
   await context.clearCookies();
 });
@@ -174,4 +178,79 @@ test('supports duration scaling, low energy, finish summary, and translated exec
   await expect(page.getByText('0/2').first()).toBeVisible();
   const data = await getProfileData(page);
   expect(data.activeSession).toMatchObject({ lowEnergy: true });
+});
+
+test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) => {
+  await selectProfile(page);
+
+  const header = page.getByTestId('status-header');
+  const nav = page.getByTestId('bottom-nav');
+  await expect(header).toBeVisible();
+  await expect(nav).toBeVisible();
+
+  const headerBox = await header.boundingBox();
+  const navBox = await nav.boundingBox();
+  expect(headerBox).toBeTruthy();
+  expect(navBox).toBeTruthy();
+  expect(headerBox.y).toBeGreaterThanOrEqual(0);
+  expect(headerBox.height).toBeLessThanOrEqual(72);
+  expect(navBox.height).toBeLessThanOrEqual(56);
+
+  const navButtons = await nav.getByRole('button').all();
+  expect(navButtons).toHaveLength(3);
+  for (const button of navButtons) {
+    const box = await button.boundingBox();
+    expect(box).toBeTruthy();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+
+  await expect(page.getByRole('button', { name: '15 min' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Low energy session/i })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-today.png'), fullPage: false });
+});
+
+test('keeps warm-up, sticky actions, rest timer, and compact nav separated on iPhone 15 Pro', async ({ page }, testInfo) => {
+  await selectProfile(page);
+  await page.getByRole('button', { name: '50 min' }).click();
+  await expect(page.getByText('Quick warm-up')).toBeVisible();
+
+  const warmupActions = page.getByTestId('sticky-actions');
+  const nav = page.getByTestId('bottom-nav');
+  const warmupActionsBox = await warmupActions.boundingBox();
+  const navBox = await nav.boundingBox();
+  expect(warmupActionsBox).toBeTruthy();
+  expect(navBox).toBeTruthy();
+  expectNoVerticalOverlap(warmupActionsBox, navBox);
+  await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-warmup.png'), fullPage: false });
+
+  await page.getByRole('button', { name: 'Warm-up done' }).click();
+  await page.getByRole('button', { name: /Complete set/ }).click();
+  await expect(page.getByTestId('rest-timer')).toBeVisible();
+
+  const sessionActionsBox = await page.getByTestId('sticky-actions').boundingBox();
+  const restTimerBox = await page.getByTestId('rest-timer').boundingBox();
+  const compactNavBox = await nav.boundingBox();
+  expect(sessionActionsBox).toBeTruthy();
+  expect(restTimerBox).toBeTruthy();
+  expect(compactNavBox).toBeTruthy();
+  expectNoVerticalOverlap(restTimerBox, sessionActionsBox);
+  expectNoVerticalOverlap(sessionActionsBox, compactNavBox);
+  await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-session-rest.png'), fullPage: false });
+});
+
+test('keeps compact header and nav labels contained in PT, EN, and ES', async ({ page }) => {
+  await selectProfile(page);
+
+  for (const expectedButton of ['[en]', '[es]', '[pt]']) {
+    await expect(page.getByTestId('status-header')).toBeVisible();
+    await expect(page.getByTestId('bottom-nav')).toBeVisible();
+    const viewport = page.viewportSize();
+    const headerBox = await page.getByTestId('status-header').boundingBox();
+    const navBox = await page.getByTestId('bottom-nav').boundingBox();
+    expect(headerBox.x).toBeGreaterThanOrEqual(0);
+    expect(navBox.x).toBeGreaterThanOrEqual(0);
+    expect(headerBox.x + headerBox.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(navBox.x + navBox.width).toBeLessThanOrEqual(viewport.width + 1);
+    await page.getByRole('button', { name: expectedButton }).click();
+  }
 });
