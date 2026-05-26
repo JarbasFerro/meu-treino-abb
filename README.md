@@ -8,6 +8,12 @@ Make daily training unavoidable, understandable, and portable.
 
 The app is built as a training cockpit, not a content library. It opens around today's workout, shows the next exercise, tracks sets and load, keeps a streak, and lets the user switch between Home, Hotel, and Low Energy modes with minimal friction.
 
+## Agent Handoff Rule
+
+Before implementing any future code change, agents must read `docs/implementation-log.md` and `docs/next-steps.md`.
+
+After implementing, agents must append or update `docs/implementation-log.md` with what changed, and update `docs/next-steps.md` so it reflects the remaining work. Treat both files as required planning context for every future implementation.
+
 ## Core Features
 
 - Today-first workout cockpit with completion, set count, streak, and next exercise.
@@ -16,8 +22,8 @@ The app is built as a training cockpit, not a content library. It opens around t
 - Beginner guidance per exercise: cues, setup notes, common mistakes, and progression advice.
 - Progressive overload logging for weighted movements.
 - Rest timer with speech or audio fallback, plus quiet mode.
-- LocalStorage-first persistence, with optional Firebase sync.
-- PWA manifest and service worker for installable offline use.
+- IndexedDB-first persistence, with optional Firebase backup sync.
+- Workbox-powered PWA manifest and service worker for installable offline use.
 
 ## Tech Stack
 

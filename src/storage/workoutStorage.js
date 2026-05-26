@@ -1,3 +1,5 @@
+import { openDB } from 'idb';
+
 export const PROFILES = [
   { id: 'jarbas', label: 'Jarbas' },
   { id: 'isabella', label: 'Isabella' },
@@ -22,6 +24,13 @@ export const LEGACY_KEYS = {
   lang: `${LEGACY_PREFIX}Lang`,
 };
 
+const DB_NAME = 'hybridFitDb';
+const DB_VERSION = 1;
+const PROFILE_STORE = 'profileData';
+const OUTBOX_STORE = 'syncOutbox';
+const META_STORE = 'appMeta';
+const STORAGE_VERSION = 2;
+
 export const getProfileKeys = (profileId) => ({
   completedSets: `hybridFitWorkoutProgress:${profileId}`,
   weights: `hybridFitWeights:${profileId}`,
@@ -45,33 +54,164 @@ export const readBoolStorage = (newKey, legacyKey) => {
   return value === 'true';
 };
 
-export const migrateLegacyProfileStorage = (profileId) => {
-  const keys = getProfileKeys(profileId);
-  Object.entries({
-    completedSets: LEGACY_KEYS.completedSets,
-    weights: LEGACY_KEYS.weights,
-    workoutHistory: LEGACY_KEYS.workoutHistory,
-    swappedExercises: LEGACY_KEYS.swappedExercises,
-  }).forEach(([field, legacyKey]) => {
-    if (!localStorage.getItem(keys[field]) && localStorage.getItem(legacyKey)) {
-      localStorage.setItem(keys[field], localStorage.getItem(legacyKey));
-    }
-  });
-};
-
-export const loadLocalProfileData = (profileId) => {
-  const keys = getProfileKeys(profileId);
-  return {
-    completedSets: readJsonStorage(keys.completedSets, {}),
-    weights: readJsonStorage(keys.weights, {}),
-    workoutHistory: readJsonStorage(keys.workoutHistory, {}),
-    swappedExercises: readJsonStorage(keys.swappedExercises, {}),
-  };
-};
-
 export const getLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const emptyProfileData = (profileId) => ({
+  profileId,
+  completedSets: {},
+  weights: {},
+  workoutHistory: {},
+  swappedExercises: {},
+  activeSession: null,
+  exerciseNotes: {},
+  rpeLog: {},
+  personalRecords: {},
+  setLog: {},
+  storageVersion: STORAGE_VERSION,
+  updatedAt: new Date().toISOString(),
+});
+
+export const normalizeProfileData = (profileId, data = {}) => ({
+  ...emptyProfileData(profileId),
+  ...data,
+  profileId,
+  completedSets: data.completedSets || {},
+  weights: data.weights || {},
+  workoutHistory: data.workoutHistory || {},
+  swappedExercises: data.swappedExercises || {},
+  activeSession: data.activeSession || null,
+  exerciseNotes: data.exerciseNotes || {},
+  rpeLog: data.rpeLog || {},
+  personalRecords: data.personalRecords || {},
+  setLog: data.setLog || {},
+  storageVersion: STORAGE_VERSION,
+  updatedAt: data.updatedAt || new Date().toISOString(),
+});
+
+const getDb = () => openDB(DB_NAME, DB_VERSION, {
+  upgrade(db) {
+    if (!db.objectStoreNames.contains(PROFILE_STORE)) {
+      db.createObjectStore(PROFILE_STORE, { keyPath: 'profileId' });
+    }
+    if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
+      const outbox = db.createObjectStore(OUTBOX_STORE, { keyPath: 'id', autoIncrement: true });
+      outbox.createIndex('profileId', 'profileId', { unique: false });
+      outbox.createIndex('createdAt', 'createdAt', { unique: false });
+    }
+    if (!db.objectStoreNames.contains(META_STORE)) {
+      db.createObjectStore(META_STORE, { keyPath: 'key' });
+    }
+  },
+});
+
+export const migrateProfileFromLocalStorage = async (profileId) => {
+  const db = await getDb();
+  const existing = await db.get(PROFILE_STORE, profileId);
+  if (existing) return normalizeProfileData(profileId, existing);
+
+  const keys = getProfileKeys(profileId);
+  const legacyProfile = {
+    completedSets: readJsonStorage(keys.completedSets, readJsonStorage(LEGACY_KEYS.completedSets, {})),
+    weights: readJsonStorage(keys.weights, readJsonStorage(LEGACY_KEYS.weights, {})),
+    workoutHistory: readJsonStorage(keys.workoutHistory, readJsonStorage(LEGACY_KEYS.workoutHistory, {})),
+    swappedExercises: readJsonStorage(keys.swappedExercises, readJsonStorage(LEGACY_KEYS.swappedExercises, {})),
+    activeSession: readJsonStorage(getActiveSessionKey(profileId), null),
+  };
+
+  const migrated = normalizeProfileData(profileId, legacyProfile);
+  await db.put(PROFILE_STORE, migrated);
+  await db.put(META_STORE, {
+    key: `migration:${profileId}`,
+    migratedAt: new Date().toISOString(),
+    from: 'localStorage',
+  });
+  return migrated;
+};
+
+export const loadProfileData = async (profileId) => {
+  const db = await getDb();
+  const existing = await db.get(PROFILE_STORE, profileId);
+  if (existing) return normalizeProfileData(profileId, existing);
+  return migrateProfileFromLocalStorage(profileId);
+};
+
+export const saveProfileData = async (profileId, patch = {}) => {
+  const db = await getDb();
+  const current = normalizeProfileData(profileId, await db.get(PROFILE_STORE, profileId));
+  const next = normalizeProfileData(profileId, {
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
+  await db.put(PROFILE_STORE, next);
+  return next;
+};
+
+export const saveOutboxMutation = async (profileId, mutation = {}) => {
+  const db = await getDb();
+  const record = {
+    profileId,
+    type: mutation.type || 'profileData',
+    data: mutation.data || {},
+    createdAt: new Date().toISOString(),
+    attempts: 0,
+  };
+  return db.add(OUTBOX_STORE, record);
+};
+
+export const flushSyncOutbox = async (syncFn) => {
+  const db = await getDb();
+  const records = await db.getAll(OUTBOX_STORE);
+  let flushed = 0;
+
+  for (const record of records) {
+    try {
+      await syncFn(record);
+      await db.delete(OUTBOX_STORE, record.id);
+      flushed += 1;
+    } catch {
+      await db.put(OUTBOX_STORE, {
+        ...record,
+        attempts: (record.attempts || 0) + 1,
+        lastAttemptAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  const remaining = await db.count(OUTBOX_STORE);
+  return { flushed, remaining };
+};
+
+export const exportProfile = async (profileId) => loadProfileData(profileId);
+
+export const importProfile = async (profileId, data) => {
+  const imported = normalizeProfileData(profileId, {
+    ...data,
+    importedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  const db = await getDb();
+  await db.put(PROFILE_STORE, imported);
+  return imported;
+};
+
+export const requestPersistentStorage = async () => {
+  if (!navigator.storage?.persist) return { supported: false, persisted: false };
+  const persisted = await navigator.storage.persist();
+  return { supported: true, persisted };
+};
+
+export const getStorageEstimate = async () => {
+  if (!navigator.storage?.estimate) return null;
+  return navigator.storage.estimate();
+};
+
+export const getOutboxCount = async () => {
+  const db = await getDb();
+  return db.count(OUTBOX_STORE);
 };

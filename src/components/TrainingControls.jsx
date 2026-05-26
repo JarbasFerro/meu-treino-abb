@@ -79,6 +79,7 @@ export const ExerciseGuidance = ({ guidance, exercise, expanded, setExpanded, t 
           </div>
         </div>
         <p className="border-t border-[#D8CFBE] pt-4 text-xs font-semibold text-[#626A5E]">{guidance.progression}</p>
+        <p className="rounded-2xl bg-[#FFF8E8] p-3 text-xs font-bold text-[#654C12]">{t.safetyNote}</p>
       </div>
     )}
   </section>

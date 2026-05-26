@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { registerSW } from 'virtual:pwa-register';
 import { translations, workoutTranslations } from './data/i18n.js';
 import { createWorkoutData } from './data/workouts.js';
 import { BottomNav, ExerciseGuidance, ModeSwitch, RestTimer } from './components/TrainingControls.jsx';
@@ -9,13 +10,18 @@ import {
   GLOBAL_KEYS,
   LEGACY_KEYS,
   PROFILES,
-  getActiveSessionKey,
+  exportProfile,
+  flushSyncOutbox,
+  getOutboxCount,
   getLocalDateString,
-  getProfileKeys,
-  loadLocalProfileData,
-  migrateLegacyProfileStorage,
+  getStorageEstimate,
+  importProfile,
+  loadProfileData,
+  migrateProfileFromLocalStorage,
+  requestPersistentStorage,
   readBoolStorage,
-  readJsonStorage,
+  saveOutboxMutation,
+  saveProfileData,
 } from './storage/workoutStorage.js';
 
 let app, auth, db;
@@ -60,7 +66,7 @@ const getInitialLanguage = () => {
 };
 
 const getSetCount = (exercise, lowEnergy) => {
-  const originalSets = parseInt(exercise.sets, 10) || 1;
+  const originalSets = parseInt(exercise?.sets, 10) || 1;
   return lowEnergy ? Math.min(2, originalSets) : originalSets;
 };
 
@@ -80,10 +86,19 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [isSynced, setIsSynced] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
+  const [exerciseNotes, setExerciseNotes] = useState({});
+  const [rpeLog, setRpeLog] = useState({});
+  const [personalRecords, setPersonalRecords] = useState({});
+  const [setLog, setSetLog] = useState({});
+  const [storageStatus, setStorageStatus] = useState({ persisted: false, pending: 0, estimate: null });
+  const [updateReady, setUpdateReady] = useState(false);
+  const [pendingImportData, setPendingImportData] = useState(null);
   const [timer, setTimer] = useState({ active: false, time: 0, total: 60 });
 
   const hasLoadedCloudData = useRef(false);
+  const hasLoadedLocalData = useRef(false);
   const activeProfileRef = useRef('');
+  const updateServiceWorkerRef = useRef(null);
   const currentDayIndex = (new Date().getDay() + 6) % 7;
 
   const t = translations[lang] || translations.en;
@@ -95,6 +110,50 @@ const App = () => {
     setWeights(data.weights || {});
     setWorkoutHistory(data.workoutHistory || {});
     setSwappedExercises(data.swappedExercises || {});
+    setActiveSession(data.activeSession || null);
+    setExerciseNotes(data.exerciseNotes || {});
+    setRpeLog(data.rpeLog || {});
+    setPersonalRecords(data.personalRecords || {});
+    setSetLog(data.setLog || {});
+  }, []);
+
+  const buildProfileSnapshot = useCallback(() => ({
+    completedSets,
+    weights,
+    workoutHistory,
+    swappedExercises,
+    activeSession,
+    exerciseNotes,
+    rpeLog,
+    personalRecords,
+    setLog,
+  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog]);
+
+  const flushOutboxToFirebase = useCallback(() => {
+    if (!firebaseInitialized || !user) return Promise.resolve();
+    return flushSyncOutbox(async (record) => {
+      const profileId = record.profileId;
+      const userDocRef = doc(db, 'workout_profiles', profileId, 'app_data', 'workout_data');
+      await setDoc(userDocRef, {
+        profileId,
+        ...record.data,
+        lastSyncedAt: new Date().toISOString(),
+      }, { merge: true });
+    })
+      .then(({ remaining }) => {
+        setStorageStatus((prev) => ({ ...prev, pending: remaining }));
+        setIsSynced(remaining === 0);
+      })
+      .catch(() => setIsSynced(false));
+  }, [user]);
+
+  useEffect(() => {
+    updateServiceWorkerRef.current = registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        setUpdateReady(true);
+      },
+    });
   }, []);
 
   useEffect(() => {
@@ -114,19 +173,40 @@ const App = () => {
   useEffect(() => {
     if (!selectedProfile) return;
 
+    let isMounted = true;
     activeProfileRef.current = selectedProfile;
     hasLoadedCloudData.current = false;
+    hasLoadedLocalData.current = false;
     setIsSynced(false);
+    setStorageStatus((prev) => ({ ...prev, pending: 0 }));
 
-    try {
-      localStorage.setItem(GLOBAL_KEYS.selectedProfile, selectedProfile);
-      migrateLegacyProfileStorage(selectedProfile);
-      applyWorkoutData(loadLocalProfileData(selectedProfile));
-      setActiveSession(readJsonStorage(getActiveSessionKey(selectedProfile), null));
-    } catch {
-      applyWorkoutData({ completedSets: {}, weights: {}, workoutHistory: {}, swappedExercises: {} });
-      setActiveSession(null);
-    }
+    const loadProfile = async () => {
+      try {
+        localStorage.setItem(GLOBAL_KEYS.selectedProfile, selectedProfile);
+        await migrateProfileFromLocalStorage(selectedProfile);
+        const localProfileData = await loadProfileData(selectedProfile);
+        const [storageResult, estimate, pending] = await Promise.all([
+          requestPersistentStorage().catch(() => ({ supported: false, persisted: false })),
+          getStorageEstimate().catch(() => null),
+          getOutboxCount().catch(() => 0),
+        ]);
+        if (!isMounted) return;
+        applyWorkoutData(localProfileData);
+        hasLoadedLocalData.current = true;
+        setStorageStatus({ persisted: storageResult.persisted, pending, estimate });
+      } catch (error) {
+        console.warn('Unable to load local profile data.', error);
+        if (!isMounted) return;
+        applyWorkoutData({});
+        hasLoadedLocalData.current = true;
+        setStorageStatus((prev) => ({ ...prev, persisted: false }));
+      }
+    };
+
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
   }, [selectedProfile, applyWorkoutData]);
 
   useEffect(() => {
@@ -134,41 +214,58 @@ const App = () => {
     const profileId = selectedProfile;
     const userDocRef = doc(db, 'workout_profiles', profileId, 'app_data', 'workout_data');
 
-    const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+    const unsubscribeSnapshot = onSnapshot(userDocRef, async (docSnap) => {
       if (activeProfileRef.current !== profileId) return;
-      if (docSnap.exists()) {
-        if (!hasLoadedCloudData.current) {
-          applyWorkoutData(docSnap.data());
-          hasLoadedCloudData.current = true;
-          setIsSynced(true);
-        }
-      } else {
-        const localProfileData = loadLocalProfileData(profileId);
-        hasLoadedCloudData.current = true;
-        setDoc(userDocRef, { profileId, ...localProfileData, lastUpdated: new Date().toISOString() }, { merge: true })
-          .then(() => setIsSynced(true))
-          .catch(() => setIsSynced(false));
+      hasLoadedCloudData.current = true;
+      setIsSynced(docSnap.exists());
+
+      if (!docSnap.exists() && hasLoadedLocalData.current) {
+        await saveOutboxMutation(profileId, { type: 'profileData', data: { profileId, ...buildProfileSnapshot() } });
       }
     }, () => setIsSynced(false));
 
     return () => unsubscribeSnapshot();
-  }, [user, selectedProfile, applyWorkoutData]);
+  }, [user, selectedProfile, buildProfileSnapshot]);
 
   useEffect(() => {
-    if (firebaseInitialized && user && selectedProfile && hasLoadedCloudData.current) {
-      const profileId = selectedProfile;
-      const userDocRef = doc(db, 'workout_profiles', profileId, 'app_data', 'workout_data');
-      setDoc(userDocRef, {
-        profileId,
-        completedSets,
-        weights,
-        workoutHistory,
-        swappedExercises,
-        lastUpdated: new Date().toISOString(),
-      }, { merge: true }).then(() => setIsSynced(true)).catch(() => setIsSynced(false));
-    }
-  }, [completedSets, weights, workoutHistory, swappedExercises, user, selectedProfile]);
+    if (!selectedProfile || !hasLoadedLocalData.current) return;
 
+    const profileId = selectedProfile;
+    const data = {
+      profileId,
+      ...buildProfileSnapshot(),
+    };
+
+    saveProfileData(profileId, data)
+      .then(() => (firebaseInitialized ? saveOutboxMutation(profileId, { type: 'profileData', data }) : null))
+      .then(() => getOutboxCount())
+      .then((pending) => setStorageStatus((prev) => ({ ...prev, pending })))
+      .then(() => flushOutboxToFirebase())
+      .catch((error) => console.warn('Unable to save local workout data.', error));
+  }, [selectedProfile, buildProfileSnapshot, flushOutboxToFirebase]);
+
+  useEffect(() => {
+    if (!firebaseInitialized || !user) return undefined;
+    flushOutboxToFirebase();
+    window.addEventListener('online', flushOutboxToFirebase);
+    return () => window.removeEventListener('online', flushOutboxToFirebase);
+  }, [user, selectedProfile, flushOutboxToFirebase]);
+
+  useEffect(() => {
+    if (!selectedProfile) return;
+    try {
+      localStorage.setItem(GLOBAL_KEYS.jetLag, jetLagMode.toString());
+      localStorage.setItem(GLOBAL_KEYS.quiet, quietMode.toString());
+      localStorage.setItem(GLOBAL_KEYS.lang, lang);
+    } catch {
+      console.warn('Unable to save local preferences.');
+    }
+  }, [jetLagMode, quietMode, lang, selectedProfile]);
+
+  /*
+   * Legacy preference migration stays on localStorage because those values are tiny
+   * and should be readable before IndexedDB finishes opening.
+   */
   useEffect(() => {
     try {
       const legacyJetLag = localStorage.getItem(LEGACY_KEYS.jetLag);
@@ -187,33 +284,6 @@ const App = () => {
       console.warn('Unable to load local preferences.');
     }
   }, []);
-
-  useEffect(() => {
-    if (!selectedProfile) return;
-    try {
-      const keys = getProfileKeys(selectedProfile);
-      localStorage.setItem(keys.completedSets, JSON.stringify(completedSets));
-      localStorage.setItem(keys.weights, JSON.stringify(weights));
-      localStorage.setItem(keys.workoutHistory, JSON.stringify(workoutHistory));
-      localStorage.setItem(keys.swappedExercises, JSON.stringify(swappedExercises));
-      localStorage.setItem(GLOBAL_KEYS.jetLag, jetLagMode.toString());
-      localStorage.setItem(GLOBAL_KEYS.quiet, quietMode.toString());
-      localStorage.setItem(GLOBAL_KEYS.lang, lang);
-    } catch {
-      console.warn('Unable to save local workout data.');
-    }
-  }, [completedSets, weights, workoutHistory, swappedExercises, jetLagMode, quietMode, lang, selectedProfile]);
-
-  useEffect(() => {
-    if (!selectedProfile) return;
-    try {
-      const key = getActiveSessionKey(selectedProfile);
-      if (activeSession) localStorage.setItem(key, JSON.stringify(activeSession));
-      else localStorage.removeItem(key);
-    } catch {
-      console.warn('Unable to save active session.');
-    }
-  }, [activeSession, selectedProfile]);
 
   const playAlert = useCallback(() => {
     if (quietMode) return;
@@ -279,14 +349,17 @@ const App = () => {
   const resetProgress = () => {
     setCompletedSets({});
     setSwappedExercises({});
+    setSetLog({});
     setActiveSession(null);
     setShowResetModal(false);
   };
 
   const toggleSet = (dayIndex, sessionMode, exIndex, setIndex, restSeconds = 60) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}-${setIndex}`;
+    const exerciseKey = `${dayIndex}-${sessionMode}-${exIndex}`;
     const todayStr = getLocalDateString();
     const isCheckedBefore = !!completedSets[key];
+    const exercise = workoutData[dayIndex]?.[sessionMode]?.[exIndex];
 
     setCompletedSets((prev) => ({ ...prev, [key]: !prev[key] }));
     if (!isCheckedBefore) startRestTimer(restSeconds);
@@ -296,11 +369,153 @@ const App = () => {
       const newCount = Math.max(0, currentCount + (isCheckedBefore ? -1 : 1));
       return { ...prev, [todayStr]: newCount };
     });
+
+    setSetLog((prev) => {
+      if (isCheckedBefore) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return {
+        ...prev,
+        [key]: {
+          date: todayStr,
+          dayIndex,
+          mode: sessionMode,
+          exerciseIndex: exIndex,
+          exerciseName: exercise?.name || '',
+          setIndex,
+          weight: weights[exerciseKey] || '',
+          rpe: rpeLog[exerciseKey] || '',
+          note: exerciseNotes[exerciseKey] || '',
+        },
+      };
+    });
+
+    if (!isCheckedBefore) {
+      setPersonalRecords((prev) => {
+        const current = prev[exerciseKey] || {};
+        const completedForExercise = getCompletedCount(dayIndex, sessionMode, exIndex, getSetCount(exercise, jetLagMode)) + 1;
+        return {
+          ...prev,
+          [exerciseKey]: {
+            ...current,
+            bestSetCount: Math.max(current.bestSetCount || 0, completedForExercise),
+            updatedAt: new Date().toISOString(),
+          },
+        };
+      });
+    }
   };
 
   const updateWeight = (dayIndex, sessionMode, exIndex, value) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}`;
     setWeights((prev) => ({ ...prev, [key]: value }));
+    const numericLoad = Number.parseFloat(value);
+    if (!Number.isFinite(numericLoad)) return;
+    setPersonalRecords((prev) => {
+      const current = prev[key] || {};
+      if ((current.bestLoad || 0) >= numericLoad) return prev;
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          bestLoad: numericLoad,
+          bestLoadAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      };
+    });
+  };
+
+  const updateExerciseNote = (dayIndex, sessionMode, exIndex, value) => {
+    const key = `${dayIndex}-${sessionMode}-${exIndex}`;
+    setExerciseNotes((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateRpe = (dayIndex, sessionMode, exIndex, value) => {
+    const key = `${dayIndex}-${sessionMode}-${exIndex}`;
+    setRpeLog((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const getExerciseStats = (dayIndex, sessionMode, exIndex) => {
+    const key = `${dayIndex}-${sessionMode}-${exIndex}`;
+    const currentWeight = weights[key] || '';
+    const record = personalRecords[key] || {};
+    return {
+      key,
+      currentWeight,
+      note: exerciseNotes[key] || '',
+      rpe: rpeLog[key] || '',
+      bestLoad: record.bestLoad || '',
+      bestSetCount: record.bestSetCount || 0,
+      isPr: Number.parseFloat(currentWeight) > 0 && Number.parseFloat(currentWeight) >= (record.bestLoad || 0),
+    };
+  };
+
+  const downloadTextFile = (fileName, text, type) => {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJson = async () => {
+    if (!selectedProfile) return;
+    const data = await exportProfile(selectedProfile);
+    downloadTextFile(`hybrid-fit-${selectedProfile}.json`, JSON.stringify(data, null, 2), 'application/json');
+  };
+
+  const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+
+  const handleExportCsv = () => {
+    const rows = Object.entries(completedSets)
+      .filter(([, isDone]) => isDone)
+      .map(([key]) => {
+        const [dayIndexRaw, sessionMode, exIndexRaw, setIndexRaw] = key.split('-');
+        const dayIndex = Number.parseInt(dayIndexRaw, 10);
+        const exIndex = Number.parseInt(exIndexRaw, 10);
+        const exerciseKey = `${dayIndex}-${sessionMode}-${exIndex}`;
+        const exercise = workoutData[dayIndex]?.[sessionMode]?.[exIndex];
+        const log = setLog[key] || {};
+        return [
+          log.date || '',
+          sessionMode,
+          workoutData[dayIndex]?.day || '',
+          exercise?.name || log.exerciseName || '',
+          Number.parseInt(setIndexRaw, 10) + 1,
+          log.weight || weights[exerciseKey] || '',
+          log.rpe || rpeLog[exerciseKey] || '',
+          log.note || exerciseNotes[exerciseKey] || '',
+        ];
+      });
+
+    const csv = [
+      ['date', 'mode', 'day', 'exercise', 'set', 'weight', 'rpe', 'note'],
+      ...rows,
+    ].map((row) => row.map(escapeCsv).join(',')).join('\n');
+
+    downloadTextFile(`hybrid-fit-${selectedProfile || 'profile'}-log.csv`, csv, 'text/csv');
+  };
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const text = await file.text();
+    setPendingImportData(JSON.parse(text));
+  };
+
+  const confirmImportProfile = async () => {
+    if (!selectedProfile || !pendingImportData) return;
+    const imported = await importProfile(selectedProfile, pendingImportData);
+    applyWorkoutData(imported);
+    setPendingImportData(null);
+    const pending = await getOutboxCount();
+    setStorageStatus((prev) => ({ ...prev, pending }));
   };
 
   const getCompletedCount = (dayIndex, sessionMode, exIndex, totalSets) => {
@@ -460,6 +675,15 @@ const App = () => {
   });
 
   const todaySummary = getWorkoutSummary(currentDayIndex, mode, jetLagMode);
+  const todayDuration = workoutData[currentDayIndex]?.session || '50m';
+  const todayEquipment = mode === 'home' ? t.homeEquipment : t.hotelEquipment;
+  const lastRelevantLoad = (() => {
+    const exercises = workoutData[currentDayIndex]?.[mode] || [];
+    const loaded = exercises.find((exercise, index) => !exercise.noWeight && weights[`${currentDayIndex}-${mode}-${index}`]);
+    if (!loaded) return t.noPreviousLoad;
+    const index = exercises.indexOf(loaded);
+    return `${loaded.name}: ${weights[`${currentDayIndex}-${mode}-${index}`]}`;
+  })();
 
   const StatusHeader = () => (
     <header className="sticky top-0 z-30 border-b border-[#D8CFBE] bg-[#F4F0E8]/95 px-4 py-3 backdrop-blur-xl">
@@ -471,6 +695,14 @@ const App = () => {
             {firebaseInitialized && (
               <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${isSynced ? 'bg-[#EAF1EA] text-[#17352D]' : 'bg-[#FFF0EC] text-[#A6422F]'}`}>
                 {isSynced ? t.syncOnline : t.syncOffline}
+              </span>
+            )}
+            <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${storageStatus.persisted ? 'bg-[#EAF1EA] text-[#17352D]' : 'bg-[#FFF8E8] text-[#654C12]'}`}>
+              {storageStatus.persisted ? t.storagePersistent : t.storageTemporary}
+            </span>
+            {storageStatus.pending > 0 && (
+              <span className="rounded-full bg-[#FFF8E8] px-2 py-1 text-[9px] font-black uppercase text-[#654C12]">
+                {storageStatus.pending} {t.syncPending}
               </span>
             )}
           </div>
@@ -505,6 +737,12 @@ const App = () => {
             <Metric label={t.metricStreak} value={calculateStreak()} />
           </div>
 
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <Metric label={t.estimatedDuration} value={todayDuration} />
+            <Metric label={t.equipmentLabel} value={todayEquipment} />
+            <Metric label={t.lastRelevantLoad} value={lastRelevantLoad} />
+          </div>
+
           <div className="mt-4 rounded-3xl bg-[#ECE5D8] p-4">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#626A5E]">{t.nextUp}</p>
             <h3 className="mt-1 text-2xl font-black text-[#171915]">{next ? next.name : t.sessionComplete}</h3>
@@ -515,7 +753,7 @@ const App = () => {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <button onClick={() => startSession(false)} className="min-h-14 rounded-2xl bg-[#17352D] px-5 text-sm font-black text-white">{t.fullSession}</button>
-            <button onClick={() => startSession(true)} className="min-h-14 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-5 text-sm font-black text-[#654C12]">{t.lowEnergySession}</button>
+            <button onClick={() => startSession(true)} className="min-h-14 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-5 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
             {activeSession && <button onClick={() => setActiveView('session')} className="min-h-14 rounded-2xl border border-[#D8CFBE] bg-white px-5 text-sm font-black text-[#17352D]">{t.resumeSession}</button>}
           </div>
         </section>
@@ -584,6 +822,16 @@ const App = () => {
             </div>
           ))}
         </section>
+        <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5">
+          <h3 className="text-lg font-black text-[#171915]">{t.ownershipTitle}</h3>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-[#626A5E]">{t.ownershipBody}</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <button onClick={handleExportJson} className="min-h-12 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white">{t.exportJson}</button>
+            <button onClick={handleExportCsv} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black">{t.exportCsv}</button>
+            <button onClick={() => document.getElementById('profile-import-file')?.click()} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black">{t.importJson}</button>
+          </div>
+          <input id="profile-import-file" type="file" accept="application/json,.json" onChange={handleImportFile} className="hidden" />
+        </section>
       </main>
     );
   };
@@ -602,7 +850,8 @@ const App = () => {
     const completedCount = getCompletedCount(activeSession.dayIndex, sessionMode, exerciseIndex, totalSets);
     const guidance = getExerciseGuidance(exercise, baseExercise);
     const nextExercise = exercises[exerciseIndex + 1];
-    const currentWeight = weights[`${activeSession.dayIndex}-${sessionMode}-${exerciseIndex}`] || '';
+    const exerciseStats = getExerciseStats(activeSession.dayIndex, sessionMode, exerciseIndex);
+    const currentWeight = exerciseStats.currentWeight;
 
     const moveToNextExercise = () => {
       if (exerciseIndex >= exercises.length - 1) {
@@ -631,7 +880,10 @@ const App = () => {
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.activeSession}</p>
-              <h2 className="mt-1 text-3xl font-black leading-tight text-[#171915]">{exercise.name}</h2>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h2 className="text-3xl font-black leading-tight text-[#171915]">{exercise.name}</h2>
+                {exerciseStats.isPr && <span className="rounded-full bg-[#17352D] px-3 py-1 text-[10px] font-black uppercase text-white">{t.prBadge}</span>}
+              </div>
               <p className="mt-2 text-sm font-bold text-[#626A5E]">{dayData.day} · {sessionMode === 'home' ? t.homeMode : t.hotelMode}</p>
             </div>
             <button onClick={finishSession} className="min-h-11 rounded-full border border-[#D8CFBE] px-3 text-xs font-black text-[#626A5E]">{t.endSession}</button>
@@ -643,10 +895,17 @@ const App = () => {
             <Metric label={t.restText} value={exercise.rest || '0s'} />
           </div>
 
+          <div className="mb-5 grid gap-2 sm:grid-cols-3">
+            <Metric label={t.previousLoad} value={currentWeight || t.noPreviousLoad} />
+            <Metric label={t.bestLoad} value={exerciseStats.bestLoad || t.noPreviousLoad} />
+            <Metric label={t.bestSets} value={exerciseStats.bestSetCount || 0} />
+          </div>
+
           <div className="rounded-3xl bg-[#ECE5D8] p-4">
             <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.targetLabel}</p>
             <p className="mt-1 text-lg font-black text-[#171915]">{exercise.desc}</p>
             <p className="mt-2 text-sm font-bold text-[#626A5E]">{t.repsShort}: {baseExercise.reps}</p>
+            <p className="mt-3 rounded-2xl bg-[#FFFCF4] px-3 py-2 text-sm font-black text-[#17352D]">{guidance.cues[0]}</p>
           </div>
 
           {!exercise.noWeight && (
@@ -655,6 +914,20 @@ const App = () => {
               <input value={currentWeight} onChange={(event) => updateWeight(activeSession.dayIndex, sessionMode, exerciseIndex, event.target.value)} placeholder={t.weightPlaceholder} className="min-h-12 w-full rounded-2xl border border-[#D8CFBE] bg-white px-4 text-lg font-black outline-none focus:border-[#2F6F5E]" />
             </label>
           )}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <label>
+              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-[#626A5E]">{t.noteLabel}</span>
+              <input value={exerciseStats.note} onChange={(event) => updateExerciseNote(activeSession.dayIndex, sessionMode, exerciseIndex, event.target.value)} placeholder={t.notePlaceholder} className="min-h-12 w-full rounded-2xl border border-[#D8CFBE] bg-white px-4 text-sm font-bold outline-none focus:border-[#2F6F5E]" />
+            </label>
+            <div>
+              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-[#626A5E]">{t.rpeLabel}</span>
+              <select value={exerciseStats.rpe} onChange={(event) => updateRpe(activeSession.dayIndex, sessionMode, exerciseIndex, event.target.value)} className="min-h-12 rounded-2xl border border-[#D8CFBE] bg-white px-4 text-sm font-black outline-none focus:border-[#2F6F5E]">
+                <option value="">-</option>
+                {Array.from({ length: 10 }).map((_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
+              </select>
+            </div>
+          </div>
 
           <div className="mt-5 flex gap-2">
             {Array.from({ length: totalSets }).map((_, setIdx) => {
@@ -732,7 +1005,7 @@ const App = () => {
   const Metric = ({ label, value }) => (
     <div className="rounded-3xl bg-[#ECE5D8] p-3 text-center">
       <span className="block text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{label}</span>
-      <strong className="mt-1 block text-2xl font-black text-[#17352D]">{value}</strong>
+      <strong className="mt-1 block break-words text-xl font-black text-[#17352D] sm:text-2xl">{value}</strong>
     </div>
   );
 
@@ -772,6 +1045,29 @@ const App = () => {
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button onClick={() => setShowResetModal(false)} className="min-h-12 rounded-2xl border border-[#D8CFBE] font-black">{t.cancel}</button>
                 <button onClick={resetProgress} className="min-h-12 rounded-2xl bg-[#A6422F] font-black text-white">{t.resetAction}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pendingImportData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-[2rem] bg-[#FFFCF4] p-6 shadow-2xl">
+              <h3 className="text-2xl font-black text-[#171915]">{t.importConfirmTitle}</h3>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-[#626A5E]">{t.importConfirmBody}</p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button onClick={() => setPendingImportData(null)} className="min-h-12 rounded-2xl border border-[#D8CFBE] font-black">{t.cancel}</button>
+                <button onClick={confirmImportProfile} className="min-h-12 rounded-2xl bg-[#17352D] font-black text-white">{t.importJson}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {updateReady && (
+          <div className="fixed inset-x-0 bottom-[5.5rem] z-[90] px-4">
+            <div className="mx-auto flex max-w-xl items-center justify-between gap-3 rounded-3xl border border-[#17352D] bg-[#FFFCF4] p-4 shadow-2xl">
+              <p className="text-sm font-black text-[#171915]">{t.updateAvailable}</p>
+              <div className="flex gap-2">
+                <button onClick={() => setUpdateReady(false)} className="min-h-11 rounded-2xl border border-[#D8CFBE] px-3 text-xs font-black">{t.later}</button>
+                <button onClick={() => updateServiceWorkerRef.current?.(true)} className="min-h-11 rounded-2xl bg-[#17352D] px-3 text-xs font-black text-white">{t.updateNow}</button>
               </div>
             </div>
           </div>
