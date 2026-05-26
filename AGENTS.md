@@ -24,3 +24,6 @@ This repository contains critical workflows and rules that all AI agent assistan
 
 5. **Commit and Push:**
    - After successfully verifying your changes and updating the documentation logs, always commit your changes and push them directly to the `main` branch.
+
+6. **Verify GitHub Pages Deployment:**
+   - After pushing to the `main` branch, always verify that the new version is compiled and available on the live site deployed via GitHub Pages.
