@@ -71,6 +71,20 @@ const getSetCount = (exercise, lowEnergy) => {
   return lowEnergy ? Math.min(2, originalSets) : originalSets;
 };
 
+const DURATION_OPTIONS = [15, 30, 50];
+
+const getSessionExercises = (exercises = [], durationMinutes = 50) => {
+  if (durationMinutes !== 15) return exercises;
+  return exercises.filter((exercise) => exercise.category !== 'mobility').slice(0, 4);
+};
+
+const getSessionSetCount = (exercise, lowEnergy, durationMinutes = 50) => {
+  const baseSets = getSetCount(exercise, lowEnergy);
+  if (durationMinutes === 15) return Math.min(1, baseSets);
+  if (durationMinutes === 30) return Math.min(2, baseSets);
+  return baseSets;
+};
+
 const App = () => {
   const [selectedProfile, setSelectedProfile] = useState(getInitialProfile);
   const [activeView, setActiveView] = useState('today');
@@ -91,6 +105,9 @@ const App = () => {
   const [rpeLog, setRpeLog] = useState({});
   const [personalRecords, setPersonalRecords] = useState({});
   const [setLog, setSetLog] = useState({});
+  const [sessionMetrics, setSessionMetrics] = useState([]);
+  const [sessionDuration, setSessionDuration] = useState(50);
+  const [finishSummary, setFinishSummary] = useState(null);
   const [storageStatus, setStorageStatus] = useState({ persisted: false, pending: 0, estimate: null });
   const [updateReady, setUpdateReady] = useState(false);
   const [pendingImportData, setPendingImportData] = useState(null);
@@ -101,6 +118,7 @@ const App = () => {
   const hasLoadedLocalData = useRef(false);
   const activeProfileRef = useRef('');
   const updateServiceWorkerRef = useRef(null);
+  const openedAtRef = useRef(new Date().toISOString());
   const currentDayIndex = (new Date().getDay() + 6) % 7;
 
   const t = translations[lang] || translations.en;
@@ -117,6 +135,8 @@ const App = () => {
     setRpeLog(data.rpeLog || {});
     setPersonalRecords(data.personalRecords || {});
     setSetLog(data.setLog || {});
+    setSessionMetrics(Array.isArray(data.sessionMetrics) ? data.sessionMetrics : []);
+    setSessionDuration(DURATION_OPTIONS.includes(data.sessionDuration) ? data.sessionDuration : 50);
     if (options.resumeActiveSession && data.activeSession) setActiveView('session');
   }, []);
 
@@ -130,7 +150,9 @@ const App = () => {
     rpeLog,
     personalRecords,
     setLog,
-  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog]);
+    sessionMetrics,
+    sessionDuration,
+  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog, sessionMetrics, sessionDuration]);
 
   const flushOutboxToFirebase = useCallback(() => {
     if (!firebaseInitialized || !user) return Promise.resolve();
@@ -385,6 +407,8 @@ const App = () => {
           date: todayStr,
           dayIndex,
           mode: sessionMode,
+          durationMinutes: activeSession?.durationMinutes || sessionDuration,
+          lowEnergy: activeSession?.lowEnergy ?? jetLagMode,
           exerciseIndex: exIndex,
           exerciseName: exercise?.name || '',
           setIndex,
@@ -398,7 +422,10 @@ const App = () => {
     if (!isCheckedBefore) {
       setPersonalRecords((prev) => {
         const current = prev[exerciseKey] || {};
-        const completedForExercise = getCompletedCount(dayIndex, sessionMode, exIndex, getSetCount(exercise, jetLagMode)) + 1;
+        const activeDuration = activeSession?.dayIndex === dayIndex && activeSession?.mode === sessionMode
+          ? activeSession.durationMinutes
+          : sessionDuration;
+        const completedForExercise = getCompletedCount(dayIndex, sessionMode, exIndex, getSessionSetCount(exercise, jetLagMode, activeDuration)) + 1;
         const numericLoad = Number.parseFloat(weights[exerciseKey]);
         return {
           ...prev,
@@ -500,6 +527,8 @@ const App = () => {
         return [
           log.date || '',
           sessionMode,
+          log.durationMinutes || sessionDuration,
+          log.lowEnergy ? 'true' : 'false',
           workoutData[dayIndex]?.day || '',
           exercise?.name || log.exerciseName || '',
           Number.parseInt(setIndexRaw, 10) + 1,
@@ -510,7 +539,7 @@ const App = () => {
       });
 
     const csv = [
-      ['date', 'mode', 'day', 'exercise', 'set', 'weight', 'rpe', 'note'],
+      ['date', 'mode', 'duration', 'lowEnergy', 'day', 'exercise', 'set', 'weight', 'rpe', 'note'],
       ...rows,
     ].map((row) => row.map(escapeCsv).join(',')).join('\n');
 
@@ -586,26 +615,26 @@ const App = () => {
     };
   };
 
-  const getDayProgress = (dayIndex, sessionMode = mode, lowEnergy = jetLagMode) => {
-    const data = workoutData[dayIndex]?.[sessionMode] || [];
+  const getDayProgress = (dayIndex, sessionMode = mode, lowEnergy = jetLagMode, durationMinutes = 50) => {
+    const data = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || [], durationMinutes);
     let totalSets = 0;
     let completed = 0;
     data.forEach((ex, i) => {
-      const numSets = getSetCount(ex, lowEnergy);
+      const numSets = getSessionSetCount(ex, lowEnergy, durationMinutes);
       totalSets += numSets;
       completed += getCompletedCount(dayIndex, sessionMode, i, numSets);
     });
     return totalSets === 0 ? 0 : Math.round((completed / totalSets) * 100);
   };
 
-  const getWorkoutSummary = (dayIndex, sessionMode = mode, lowEnergy = jetLagMode) => {
-    const exercises = workoutData[dayIndex]?.[sessionMode] || [];
+  const getWorkoutSummary = (dayIndex, sessionMode = mode, lowEnergy = jetLagMode, durationMinutes = 50) => {
+    const exercises = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || [], durationMinutes);
     let totalSets = 0;
     let completed = 0;
     let nextExercise = null;
 
     exercises.forEach((ex, i) => {
-      const numSets = getSetCount(ex, lowEnergy);
+      const numSets = getSessionSetCount(ex, lowEnergy, durationMinutes);
       const done = getCompletedCount(dayIndex, sessionMode, i, numSets);
       totalSets += numSets;
       completed += done;
@@ -640,8 +669,8 @@ const App = () => {
   };
 
   const getExpectedWeeklyUnits = () => workoutData.reduce((sum, dayData) => {
-    const dayExercises = dayData[mode] || dayData.home || [];
-    return sum + dayExercises.reduce((daySum, ex) => daySum + getSetCount(ex, jetLagMode), 0);
+    const dayExercises = getSessionExercises(dayData[mode] || dayData.home || [], sessionDuration);
+    return sum + dayExercises.reduce((daySum, ex) => daySum + getSessionSetCount(ex, jetLagMode, sessionDuration), 0);
   }, 0);
 
   const calculateCompletionRate = () => {
@@ -671,20 +700,104 @@ const App = () => {
     return vol;
   };
 
-  const startSession = (lowEnergy = jetLagMode) => {
+  const getSessionPlan = (dayIndex, sessionMode, lowEnergy, durationMinutes) => {
+    const exercises = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || [], durationMinutes);
+    const plannedSets = exercises.reduce((sum, exercise) => sum + getSessionSetCount(exercise, lowEnergy, durationMinutes), 0);
+    const completed = exercises.reduce((sum, exercise, index) => {
+      const sets = getSessionSetCount(exercise, lowEnergy, durationMinutes);
+      return sum + getCompletedCount(dayIndex, sessionMode, index, sets);
+    }, 0);
+    return { exercises, plannedSets, completed };
+  };
+
+  const getSessionSummary = (session) => {
+    const sessionMode = session.mode || mode;
+    const durationMinutes = session.durationMinutes || 50;
+    const lowEnergy = session.lowEnergy ?? jetLagMode;
+    const plan = getSessionPlan(session.dayIndex, sessionMode, lowEnergy, durationMinutes);
+    const baseline = session.baselineRecords || {};
+    let bestLoad = 0;
+    let prCount = 0;
+    const rpeValues = [];
+
+    plan.exercises.forEach((exercise, index) => {
+      const key = `${session.dayIndex}-${sessionMode}-${index}`;
+      const currentLoad = Number.parseFloat(weights[key]);
+      const baselineLoad = baseline[key]?.bestLoad || 0;
+      if (Number.isFinite(currentLoad)) {
+        bestLoad = Math.max(bestLoad, currentLoad);
+        if (currentLoad > baselineLoad) prCount += 1;
+      }
+      const rpe = Number.parseFloat(rpeLog[key]);
+      if (Number.isFinite(rpe)) rpeValues.push(rpe);
+    });
+
+    const avgRpe = rpeValues.length
+      ? Math.round((rpeValues.reduce((sum, value) => sum + value, 0) / rpeValues.length) * 10) / 10
+      : '';
+
+    return {
+      date: getLocalDateString(),
+      mode: sessionMode,
+      durationMinutes,
+      lowEnergy,
+      startedAt: session.startedAt,
+      finishedAt: new Date().toISOString(),
+      timeToStartSeconds: session.timeToStartSeconds || 0,
+      completedSets: plan.completed,
+      plannedSets: plan.plannedSets,
+      bestLoad: bestLoad || '',
+      prCount,
+      avgRpe,
+    };
+  };
+
+  const startSession = (durationMinutes = sessionDuration, lowEnergy = false) => {
+    setSessionDuration(durationMinutes);
     setJetLagMode(lowEnergy);
-    setActiveSession({ dayIndex: currentDayIndex, mode, exerciseIndex: 0, currentSetIndex: 0, lowEnergy, baselineRecords: personalRecords, startedAt: new Date().toISOString() });
+    const now = new Date();
+    setFinishSummary(null);
+    setActiveSession({
+      dayIndex: currentDayIndex,
+      mode,
+      exerciseIndex: 0,
+      currentSetIndex: 0,
+      durationMinutes,
+      warmupDone: false,
+      lowEnergy,
+      baselineRecords: personalRecords,
+      startedAt: now.toISOString(),
+      timeToStartSeconds: Math.max(0, Math.round((now.getTime() - new Date(openedAtRef.current).getTime()) / 1000)),
+    });
     setActiveView('session');
     setExpandedInfo(null);
   };
 
   const openDaySession = (dayIndex) => {
-    setActiveSession({ dayIndex, mode, exerciseIndex: 0, currentSetIndex: 0, lowEnergy: jetLagMode, baselineRecords: personalRecords, startedAt: new Date().toISOString() });
+    const now = new Date();
+    setFinishSummary(null);
+    setActiveSession({
+      dayIndex,
+      mode,
+      exerciseIndex: 0,
+      currentSetIndex: 0,
+      durationMinutes: sessionDuration,
+      warmupDone: false,
+      lowEnergy: jetLagMode,
+      baselineRecords: personalRecords,
+      startedAt: now.toISOString(),
+      timeToStartSeconds: Math.max(0, Math.round((now.getTime() - new Date(openedAtRef.current).getTime()) / 1000)),
+    });
     setActiveView('session');
     setExpandedInfo(null);
   };
 
   const finishSession = () => {
+    if (activeSession) {
+      const summary = getSessionSummary(activeSession);
+      setSessionMetrics((prev) => [...prev.slice(-29), summary]);
+      setFinishSummary(summary);
+    }
     setActiveSession(null);
     setActiveView('today');
     setExpandedInfo(null);
@@ -706,9 +819,12 @@ const App = () => {
     return getLocalDateString(d);
   });
 
-  const todaySummary = getWorkoutSummary(currentDayIndex, mode, jetLagMode);
-  const todayDuration = workoutData[currentDayIndex]?.session || '50m';
+  const todaySummary = getWorkoutSummary(currentDayIndex, mode, jetLagMode, sessionDuration);
+  const todayDuration = `${sessionDuration} min`;
   const todayEquipment = mode === 'home' ? t.homeEquipment : t.hotelEquipment;
+  const firstCue = todaySummary.exercises[0]
+    ? getExerciseGuidance(todaySummary.exercises[0], todaySummary.exercises[0]).cues[0]
+    : t.allDone;
   const lastRelevantLoad = (() => {
     const exercises = workoutData[currentDayIndex]?.[mode] || [];
     const loaded = exercises.find((exercise, index) => !exercise.noWeight && weights[`${currentDayIndex}-${mode}-${index}`]);
@@ -768,7 +884,7 @@ const App = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Metric label={t.metricToday} value={`${getDayProgress(currentDayIndex, mode, jetLagMode)}%`} />
+            <Metric label={t.metricToday} value={`${getDayProgress(currentDayIndex, mode, jetLagMode, sessionDuration)}%`} />
             <Metric label={t.metricSets} value={`${todaySummary.completed}/${todaySummary.totalSets}`} />
             <Metric label={t.metricStreak} value={calculateStreak()} />
           </div>
@@ -776,7 +892,12 @@ const App = () => {
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <Metric label={t.estimatedDuration} value={todayDuration} />
             <Metric label={t.equipmentLabel} value={todayEquipment} />
+            <Metric label={t.plannedSets} value={todaySummary.totalSets} />
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <Metric label={t.lastRelevantLoad} value={lastRelevantLoad} />
+            <Metric label={t.firstCue} value={firstCue} />
           </div>
 
           <div className="mt-4 rounded-3xl bg-[#ECE5D8] p-4">
@@ -787,12 +908,37 @@ const App = () => {
             </p>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <button onClick={() => startSession(false)} className="min-h-14 rounded-2xl bg-[#17352D] px-5 text-sm font-black text-white">{t.fullSession}</button>
-            <button onClick={() => startSession(true)} className="min-h-14 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-5 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
+          <div className="mt-5 grid gap-3 sm:grid-cols-5">
+            {DURATION_OPTIONS.map((duration) => (
+              <button
+                key={duration}
+                onClick={() => startSession(duration, false)}
+                className={`min-h-14 rounded-2xl px-5 text-sm font-black ${sessionDuration === duration ? 'bg-[#17352D] text-white' : 'border border-[#D8CFBE] bg-white text-[#17352D]'}`}
+              >
+                {t[`duration${duration}`]}
+              </button>
+            ))}
+            <button onClick={() => startSession(sessionDuration, true)} className="min-h-14 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-5 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
             {activeSession && <button onClick={() => setActiveView('session')} className="min-h-14 rounded-2xl border border-[#D8CFBE] bg-white px-5 text-sm font-black text-[#17352D]">{t.resumeSession}</button>}
           </div>
         </section>
+
+        {finishSummary && (
+          <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.finishSummaryTitle}</p>
+            <h3 className="mt-2 text-2xl font-black text-[#171915]">{finishSummary.completedSets}/{finishSummary.plannedSets} {t.setsDoneText}</h3>
+            <p className="mt-2 text-sm font-semibold text-[#626A5E]">{t.finishSummaryBody}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Metric label={t.sessionType} value={finishSummary.lowEnergy ? t.lowEnergy : finishSummary.mode === 'home' ? t.homeMode : t.hotelMode} />
+              <Metric label={t.durationLabel} value={`${finishSummary.durationMinutes} min`} />
+              <Metric label={t.timeToStart} value={`${finishSummary.timeToStartSeconds}s`} />
+              <Metric label={t.prCount} value={finishSummary.prCount} />
+              <Metric label={t.avgRpe} value={finishSummary.avgRpe || '-'} />
+              <Metric label={t.bestToday} value={finishSummary.bestLoad || t.noPreviousLoad} />
+            </div>
+            <button onClick={() => setFinishSummary(null)} className="mt-4 min-h-12 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white">{t.backToToday}</button>
+          </section>
+        )}
 
         <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5">
           <div className="mb-4 flex items-center justify-between">
@@ -821,7 +967,7 @@ const App = () => {
               <h3 className="text-2xl font-black text-[#171915]">{dayData.day}</h3>
               <p className="text-sm font-bold text-[#626A5E]">{dayData.focus} · {dayData.session}</p>
             </div>
-            <span className="rounded-full bg-[#EAF1EA] px-3 py-2 text-sm font-black text-[#17352D]">{getDayProgress(index, mode, jetLagMode)}%</span>
+            <span className="rounded-full bg-[#EAF1EA] px-3 py-2 text-sm font-black text-[#17352D]">{getDayProgress(index, mode, jetLagMode, sessionDuration)}%</span>
           </button>
           <ExerciseList dayIndex={index} sessionMode={mode} compact />
         </section>
@@ -877,13 +1023,14 @@ const App = () => {
     if (!activeSession) return <TodayView />;
     const dayData = workoutData[activeSession.dayIndex] || workoutData[currentDayIndex];
     const sessionMode = activeSession.mode || mode;
-    const exercises = dayData[sessionMode] || [];
+    const durationMinutes = activeSession.durationMinutes || 50;
+    const lowEnergy = activeSession.lowEnergy ?? jetLagMode;
+    const exercises = getSessionExercises(dayData[sessionMode] || [], durationMinutes);
     const exerciseIndex = Math.min(activeSession.exerciseIndex, Math.max(0, exercises.length - 1));
     const baseExercise = exercises[exerciseIndex];
     const isSwapped = swappedExercises[`${activeSession.dayIndex}-${sessionMode}-${exerciseIndex}`];
     const exercise = isSwapped && baseExercise?.alt ? baseExercise.alt : baseExercise;
-    const lowEnergy = activeSession.lowEnergy ?? jetLagMode;
-    const totalSets = getSetCount(baseExercise, lowEnergy);
+    const totalSets = getSessionSetCount(baseExercise, lowEnergy, durationMinutes);
     const completedCount = getCompletedCount(activeSession.dayIndex, sessionMode, exerciseIndex, totalSets);
     const guidance = getExerciseGuidance(exercise, baseExercise);
     const nextExercise = exercises[exerciseIndex + 1];
@@ -906,13 +1053,43 @@ const App = () => {
         return;
       }
       if (setIndex >= 0) toggleSet(activeSession.dayIndex, sessionMode, exerciseIndex, setIndex, exercise.restSeconds ?? 60);
-      if (setIndex === totalSets - 1) moveToNextExercise();
+      if (setIndex === totalSets - 1) {
+        if (exerciseIndex >= exercises.length - 1) {
+          setTimeout(finishSession, 0);
+        } else {
+          moveToNextExercise();
+        }
+      }
     };
 
     if (!exercise) return null;
 
+    if (activeSession.warmupDone === false) {
+      return (
+        <main className="mx-auto max-w-3xl space-y-5 px-4 pb-36 pt-5">
+          <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5 shadow-[0_20px_80px_rgba(42,48,39,0.08)]">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.activeSession}</p>
+            <h2 className="mt-2 text-3xl font-black text-[#171915]">{t.warmupTitle}</h2>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-[#626A5E]">{t.warmupBody}</p>
+            <div className="mt-5 space-y-3">
+              {[t.warmupStepOne, t.warmupStepTwo, t.warmupStepThree].map((step, index) => (
+                <div key={step} className="flex gap-3 rounded-3xl bg-[#ECE5D8] p-4">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#17352D] text-sm font-black text-white">{index + 1}</span>
+                  <p className="text-sm font-bold text-[#31362F]">{step}</p>
+                </div>
+              ))}
+            </div>
+            <div className="sticky bottom-[5.25rem] z-20 mt-6 grid gap-3 rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4]/95 p-3 shadow-2xl backdrop-blur-xl sm:grid-cols-2">
+              <button onClick={() => setActiveSession((prev) => ({ ...prev, warmupDone: true }))} className="min-h-14 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white">{t.warmupDone}</button>
+              <button onClick={() => setActiveSession((prev) => ({ ...prev, warmupDone: true }))} className="min-h-14 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black text-[#626A5E]">{t.skipWarmup}</button>
+            </div>
+          </section>
+        </main>
+      );
+    }
+
     return (
-      <main className="mx-auto max-w-3xl space-y-5 px-4 pb-36 pt-5">
+      <main className="mx-auto max-w-3xl space-y-5 px-4 pb-44 pt-5">
         <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5 shadow-[0_20px_80px_rgba(42,48,39,0.08)]">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
@@ -921,7 +1098,7 @@ const App = () => {
                 <h2 className="text-3xl font-black leading-tight text-[#171915]">{exercise.name}</h2>
                 {exerciseStats.isPr && <span className="rounded-full bg-[#17352D] px-3 py-1 text-[10px] font-black uppercase text-white">{t.prBadge}</span>}
               </div>
-              <p className="mt-2 text-sm font-bold text-[#626A5E]">{dayData.day} · {sessionMode === 'home' ? t.homeMode : t.hotelMode}</p>
+              <p className="mt-2 text-sm font-bold text-[#626A5E]">{dayData.day} · {sessionMode === 'home' ? t.homeMode : t.hotelMode} · {durationMinutes} min</p>
             </div>
             <button onClick={finishSession} className="min-h-11 rounded-full border border-[#D8CFBE] px-3 text-xs font-black text-[#626A5E]">{t.endSession}</button>
           </div>
@@ -977,7 +1154,7 @@ const App = () => {
             })}
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="sticky bottom-[5.25rem] z-20 mt-5 grid gap-3 rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4]/95 p-3 shadow-2xl backdrop-blur-xl sm:grid-cols-3">
             <button disabled={exerciseIndex === 0} onClick={() => setActiveSession((prev) => ({ ...prev, exerciseIndex: Math.max(0, prev.exerciseIndex - 1) }))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black disabled:opacity-40">{t.previous}</button>
             <button onClick={completeNextSet} className="min-h-12 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white">{completedCount >= totalSets ? t.nextExercise : t.completeSet}</button>
             <button onClick={() => (exerciseIndex >= exercises.length - 1 ? finishSession() : setActiveSession((prev) => ({ ...prev, exerciseIndex: prev.exerciseIndex + 1 })))} className="min-h-12 rounded-2xl border border-[#D8CFBE] px-4 text-sm font-black">{exerciseIndex >= exercises.length - 1 ? t.finishWorkout : t.nextExercise}</button>
@@ -998,13 +1175,13 @@ const App = () => {
 
   const ExerciseList = ({ dayIndex, sessionMode, compact = false }) => {
     const dayData = workoutData[dayIndex];
-    const exercises = dayData?.[sessionMode] || [];
+    const exercises = getSessionExercises(dayData?.[sessionMode] || [], sessionDuration);
     return (
       <div className="space-y-3">
         {exercises.map((baseExercise, exIndex) => {
           const isSwapped = swappedExercises[`${dayIndex}-${sessionMode}-${exIndex}`];
           const exercise = isSwapped && baseExercise.alt ? baseExercise.alt : baseExercise;
-          const numSets = getSetCount(baseExercise, jetLagMode);
+          const numSets = getSessionSetCount(baseExercise, jetLagMode, sessionDuration);
           const completedCount = getCompletedCount(dayIndex, sessionMode, exIndex, numSets);
           const isInfoExpanded = expandedInfo === `${dayIndex}-${sessionMode}-${exIndex}`;
           const guidance = getExerciseGuidance(exercise, baseExercise);

@@ -2,6 +2,15 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Execution flow upgrade
+
+- Added 15, 30, and 50 minute session starts, with deterministic set caps for shorter sessions and Low Energy remaining a separate habit-preserving mode.
+- Added localized warm-up flow with persisted `warmupDone`, active-session duration metadata, session-start timing, and local `sessionMetrics`.
+- Improved Today with selected duration, planned set count, first cue, equipment, and last-load visibility.
+- Added finish summaries with session type, duration, time to start, completed/planned sets, PR count, average RPE, and best load.
+- Extended CSV export with duration and Low Energy columns while preserving completed-set and weight key formats.
+- Added Playwright coverage for duration scaling, warm-up persistence, Low Energy, finish summary, CSV columns, and PT/EN/ES execution copy.
+
 ## 2026-05-26 - Local-first reliability stabilization
 
 - Added Playwright browser tests for profile selection, legacy localStorage migration, active-session refresh, set logging, JSON/CSV export, invalid import rejection, valid import, and offline shell refresh.

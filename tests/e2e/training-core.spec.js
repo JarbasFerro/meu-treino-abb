@@ -6,7 +6,7 @@ const selectProfile = async (page) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Jarbas/ }).click();
   await expect(page.getByRole('heading', { name: /Hybrid Fit/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Full session/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
 };
 
 const getProfileData = (page, id = profileId) => page.evaluate(async (selectedProfile) => {
@@ -64,7 +64,9 @@ test('migrates legacy localStorage into IndexedDB without deleting legacy data',
 
 test('starts and resumes an active session with logged set details', async ({ page }) => {
   await selectProfile(page);
-  await page.getByRole('button', { name: /Full session/ }).click();
+  await page.getByRole('button', { name: '50 min' }).click();
+  await expect(page.getByText('Quick warm-up')).toBeVisible();
+  await page.getByRole('button', { name: 'Warm-up done' }).click();
   await expect(page.getByText('Active session')).toBeVisible();
 
   const loadInput = page.getByPlaceholder('Load').first();
@@ -85,6 +87,7 @@ test('starts and resumes an active session with logged set details', async ({ pa
   await expect(page.getByPlaceholder('Load').first()).toHaveValue('24');
 
   const data = await getProfileData(page);
+  expect(data.activeSession).toMatchObject({ durationMinutes: 50, warmupDone: true });
   expect(Object.values(data.setLog)).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ weight: '24', rpe: '7', note: 'steady tempo' }),
@@ -94,7 +97,8 @@ test('starts and resumes an active session with logged set details', async ({ pa
 
 test('exports JSON, rejects invalid imports, imports valid backups, and exports CSV logs', async ({ page }, testInfo) => {
   await selectProfile(page);
-  await page.getByRole('button', { name: /Full session/ }).click();
+  await page.getByRole('button', { name: '30 min' }).click();
+  await page.getByRole('button', { name: 'Warm-up done' }).click();
   await page.getByPlaceholder('Load').first().fill('18');
   await page.getByPlaceholder(/Adjustments/).fill('backup test');
   await page.locator('select').selectOption('6');
@@ -125,7 +129,9 @@ test('exports JSON, rejects invalid imports, imports valid backups, and exports 
   ]);
   const csvPath = await csvDownload.path();
   const csv = await import('node:fs/promises').then((fs) => fs.readFile(csvPath, 'utf8'));
-  expect(csv).toContain('"date","mode","day","exercise","set","weight","rpe","note"');
+  expect(csv).toContain('"date","mode","duration","lowEnergy","day","exercise","set","weight","rpe","note"');
+  expect(csv).toContain('"30"');
+  expect(csv).toContain('"false"');
   expect(csv).toContain('"18"');
   expect(csv).toContain('"6"');
   expect(csv).toContain('"backup test"');
@@ -136,6 +142,36 @@ test('keeps the PWA shell available on offline refresh', async ({ page, context 
   await waitForServiceWorker(page);
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('button', { name: /Full session/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
   await context.setOffline(false);
+});
+
+test('supports duration scaling, low energy, finish summary, and translated execution copy', async ({ page }) => {
+  await selectProfile(page);
+
+  await page.getByRole('button', { name: '15 min' }).click();
+  await page.getByRole('button', { name: 'Skip warm-up' }).click();
+  await expect(page.getByText('Exercise', { exact: true })).toBeVisible();
+  await expect(page.getByText('1/4').first()).toBeVisible();
+  await expect(page.getByText('Set', { exact: true })).toBeVisible();
+  await expect(page.getByText('0/1').first()).toBeVisible();
+  await page.getByRole('button', { name: 'End session' }).click();
+  await expect(page.getByText('Workout logged')).toBeVisible();
+
+  await page.getByRole('button', { name: '30 min' }).click();
+  await page.getByRole('button', { name: 'Warm-up done' }).click();
+  await expect(page.getByText('0/2').first()).toBeVisible();
+  await page.getByRole('button', { name: 'End session' }).click();
+
+  await page.getByRole('button', { name: /Low energy session/ }).click();
+  await page.getByRole('button', { name: '[en]' }).click();
+  await expect(page.getByText('Calentamiento rápido')).toBeVisible();
+  await page.getByRole('button', { name: '[es]' }).click();
+  await expect(page.getByText('Aquecimento rápido')).toBeVisible();
+  await page.getByRole('button', { name: '[pt]' }).click();
+  await expect(page.getByText('Quick warm-up')).toBeVisible();
+  await page.getByRole('button', { name: 'Warm-up done' }).click();
+  await expect(page.getByText('0/2').first()).toBeVisible();
+  const data = await getProfileData(page);
+  expect(data.activeSession).toMatchObject({ lowEnergy: true });
 });

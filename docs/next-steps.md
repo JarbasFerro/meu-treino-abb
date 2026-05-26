@@ -24,13 +24,9 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P1 - Today And Active-Session Execution
 
-- Add duration elasticity beyond the current full/low-energy split: 15, 30, and 50 minute options, with clear programming rules for which exercises/sets stay in each version.
-- Add a tiny session warm-up block, especially for strength days, with safe defaults and no extra decision burden.
-- Improve the Today summary with equipment needed, estimated duration by selected mode/duration, last relevant load, and the first exercise's key cue.
-- Add time-to-start instrumentation locally: app open timestamp, Start press timestamp, and whether the user chose full, shorter, Hotel, or Low Energy.
-- Add a session-finish summary that shows completed sets, session type, best lift/core note, RPE, and a non-shaming next action.
-- Add one-handed active-session polish: fixed primary set action, large timer controls, clear previous/next exercise context, and no bottom-nav collision on iPhone safe areas.
-- Add optional auto-advance behavior after the final set of an exercise, with an obvious manual override.
+- Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
+- Improve session finish summaries with clearer best lift/core note selection once richer per-exercise history views exist.
+- Continue one-handed active-session polish after physical iPhone testing, especially sticky action placement with active rest timer and bottom navigation.
 - Add warm-up load suggestions for weighted exercises when enough history exists.
 
 ## P1 - Travel, Equipment, And Replacement Quality

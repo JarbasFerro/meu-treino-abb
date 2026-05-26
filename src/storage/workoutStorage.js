@@ -73,6 +73,8 @@ const emptyProfileData = (profileId) => ({
   rpeLog: {},
   personalRecords: {},
   setLog: {},
+  sessionMetrics: [],
+  sessionDuration: 50,
   storageVersion: STORAGE_VERSION,
   updatedAt: new Date().toISOString(),
 });
@@ -90,6 +92,8 @@ export const normalizeProfileData = (profileId, data = {}) => ({
   rpeLog: data.rpeLog || {},
   personalRecords: data.personalRecords || {},
   setLog: data.setLog || {},
+  sessionMetrics: Array.isArray(data.sessionMetrics) ? data.sessionMetrics : [],
+  sessionDuration: [15, 30, 50].includes(data.sessionDuration) ? data.sessionDuration : 50,
   storageVersion: STORAGE_VERSION,
   updatedAt: data.updatedAt || new Date().toISOString(),
 });
@@ -119,6 +123,10 @@ export const validateProfileBackup = (data) => {
 
   if ('activeSession' in data && data.activeSession !== null && !isPlainObject(data.activeSession)) {
     return { valid: false, reason: 'invalidField', field: 'activeSession' };
+  }
+
+  if ('sessionMetrics' in data && !Array.isArray(data.sessionMetrics)) {
+    return { valid: false, reason: 'invalidField', field: 'sessionMetrics' };
   }
 
   if ('profileId' in data && !PROFILES.some((profile) => profile.id === data.profileId)) {
