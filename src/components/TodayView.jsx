@@ -211,9 +211,47 @@ export const TodayView = ({ state }) => {
             <Metric label={t.avgRpe} value={finishSummary.avgRpe || '-'} />
             <Metric label={t.bestToday} value={finishSummary.bestLoad || t.noPreviousLoad} />
           </div>
+          {finishSummary.exerciseSummaryList && finishSummary.exerciseSummaryList.length > 0 && (
+            <div className="mt-6 border-t border-[#D8CFBE] pt-4" data-testid="finish-exercise-summary">
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#2F6F5E] mb-3">
+                {t.sessionHighlights}
+              </h4>
+              <div className="space-y-2">
+                {finishSummary.exerciseSummaryList.map((item, idx) => (
+                  <div key={idx} className="rounded-2xl border border-[#EAE3D5] bg-[#FAF6EC] p-3 text-xs flex flex-col gap-1">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="font-black text-[#171915]">{item.name}</span>
+                      <span className="shrink-0 font-black text-[#2F6F5E] bg-[#E8F1EE] px-2 py-0.5 rounded-full text-[10px]">
+                        {item.completed}/{item.planned} {t.metricSets.toLowerCase()}
+                      </span>
+                    </div>
+                    {(item.weight || item.rpe) && (
+                      <div className="flex gap-4 font-bold text-[#626A5E] mt-1">
+                        {item.weight && (
+                          <span>
+                            {t.weightPlaceholder}: <strong className="text-[#171915]">{item.weight}</strong>
+                          </span>
+                        )}
+                        {item.rpe && (
+                          <span>
+                            {t.rpeLabel}: <strong className="text-[#171915]">{item.rpe}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {item.note && (
+                      <p className="italic text-[#8D9387] mt-1 font-semibold border-l-2 border-[#D8CFBE] pl-2">
+                        {item.note}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <button
             onClick={() => setFinishSummary(null)}
-            className="mt-4 min-h-12 rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white"
+            className="mt-4 min-h-12 w-full rounded-2xl bg-[#17352D] px-4 text-sm font-black text-white"
           >
             {t.backToToday}
           </button>

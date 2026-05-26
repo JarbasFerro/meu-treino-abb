@@ -812,8 +812,9 @@ export const useWorkoutState = () => {
     let bestLoad = 0;
     let prCount = 0;
     const rpeValues = [];
+    const exerciseSummaryList = [];
 
-    plan.exercises.forEach((exercise, index) => {
+    plan.exercises.forEach((baseExercise, index) => {
       const key = `${session.dayIndex}-${sessionMode}-${index}`;
       const currentLoad = Number.parseFloat(weights[key]);
       const baselineLoad = baseline[key]?.bestLoad || 0;
@@ -823,6 +824,24 @@ export const useWorkoutState = () => {
       }
       const rpe = Number.parseFloat(rpeLog[key]);
       if (Number.isFinite(rpe)) rpeValues.push(rpe);
+
+      // Compute individual exercise achievements
+      const activeSwapIndex = getSwapValue(swappedExercises[key]);
+      const exercise = activeSwapIndex !== null && baseExercise?.altOptions?.[activeSwapIndex] ? baseExercise.altOptions[activeSwapIndex] : baseExercise;
+      if (exercise) {
+        const sets = getSessionSetCount(baseExercise, lowEnergy, durationMinutes);
+        const completed = getCompletedCount(session.dayIndex, sessionMode, index, sets);
+        if (completed > 0) {
+          exerciseSummaryList.push({
+            name: exercise.name,
+            completed,
+            planned: sets,
+            weight: weights[key] || '',
+            rpe: rpeLog[key] || '',
+            note: exerciseNotes[key] || '',
+          });
+        }
+      }
     });
 
     const avgRpe = rpeValues.length
@@ -842,8 +861,9 @@ export const useWorkoutState = () => {
       bestLoad: bestLoad || '',
       prCount,
       avgRpe,
+      exerciseSummaryList,
     };
-  }, [mode, jetLagMode, getSessionPlan, weights, rpeLog]);
+  }, [mode, jetLagMode, getSessionPlan, weights, rpeLog, swappedExercises, exerciseNotes, getCompletedCount]);
 
   const startSession = (durationMinutes = sessionDuration, lowEnergy = false) => {
     setSessionDuration(durationMinutes);

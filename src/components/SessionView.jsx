@@ -171,6 +171,22 @@ export const SessionView = ({ state }) => {
           </div>
         )}
 
+        {exercise.safetyCaution && (
+          <div data-testid="safety-caution-box" className="mb-5 rounded-3xl border border-[#D08B2A] bg-[#FFF6E9] p-4 flex gap-3 text-xs">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D08B2A] text-[10px] font-black text-white" aria-hidden="true">
+              ⚠️
+            </span>
+            <div className="space-y-1">
+              <p className="font-black text-[#A05C00] uppercase tracking-wide">
+                {t.warningLabel}
+              </p>
+              <p className="font-bold text-[#7A4B00] leading-relaxed">
+                {exercise.safetyCaution}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-3xl bg-[#ECE5D8] p-4">
           <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.targetLabel}</p>
           <p className="mt-1 text-lg font-black text-[#171915]">{exercise.desc}</p>

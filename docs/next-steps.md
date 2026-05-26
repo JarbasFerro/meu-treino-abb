@@ -35,7 +35,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 - Refine the Hotel equipment checklist after physical travel use, especially whether "room only" should hide more original planned exercises or simply bias swap choices.
 - Refine equipment-aware swaps after real use: improve exercise-specific alternatives and decide whether unavailable original exercises need stronger warnings.
 - [DONE] Add travel-week templates: implemented via a unified "Travel-Week Mode" toggle that switches to Hotel mode, sets duration to 30 min, and restricts equipment to "Room-Only".
-- Add richer mode-specific equipment notes in Today, including warnings for hotel movements that depend on furniture stability.
+- [DONE] Add richer mode-specific equipment notes in Today, including warnings for hotel movements that depend on furniture stability.
 - [DONE] Track environment mix locally: Home, Hotel, and Low Energy frequencies are stored in `sessionMetrics` and shown in `ProgressView`.
 
 ## P1 - Beginner Guidance, Safety, And Progression
@@ -61,7 +61,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - [DONE] Build richer progression views: implemented a "Benchmarks & Lifts" section in ProgressView presenting anchor lifts.
 - [DONE] Add per-exercise history sheets: implemented `HistoryDrawer` using `<dialog>` with slide transitions showing recent sets, loads, notes, and PRs.
-- Add simple trend charts using `sessionMetrics` and `exerciseHistory`: training-day completion over time, session duration breakdown, Home/Hotel/Low Energy frequencies mix, and swap count averages.
+- [/] Add simple trend charts: implemented duration breakdown and Low Energy fallback frequency mix using `sessionMetrics`; training-day completion over time and swap averages remain for future iterations.
 - Add local-only friction analytics: time-to-start, abandon-before-start, session interruptions, completed duration version, and offline write success.
 - Add a core-strength milestone view that makes planks, carries, anti-rotation work, and bracing progress easy to understand.
 - Preserve CSV export and extend it when new metrics (like `exerciseHistory` entries) are added.

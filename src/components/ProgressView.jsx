@@ -15,6 +15,7 @@ export const ProgressView = ({ state }) => {
     importError,
     getEnvironmentMix,
     setHistoryDrawerExercise,
+    sessionMetrics,
   } = state;
 
   const last14Days = Array.from({ length: 14 }).map((_, i) => {
@@ -26,6 +27,32 @@ export const ProgressView = ({ state }) => {
   const vol = getVolumeData();
   const total = Object.values(vol).reduce((a, b) => a + b, 0) || 1;
   const mix = getEnvironmentMix;
+
+  // Aggregate duration and energy adaptation trends from the last 30 workouts in sessionMetrics
+  const totalSessions = sessionMetrics?.length || 0;
+  const durationCounts = { 15: 0, 30: 0, 50: 0 };
+  const energyCounts = { normal: 0, low: 0 };
+
+  if (sessionMetrics) {
+    sessionMetrics.forEach((m) => {
+      const duration = m.durationMinutes || 50;
+      if (durationCounts[duration] !== undefined) {
+        durationCounts[duration] += 1;
+      } else {
+        durationCounts[50] += 1;
+      }
+      if (m.lowEnergy) {
+        energyCounts.low += 1;
+      } else {
+        energyCounts.normal += 1;
+      }
+    });
+  }
+
+  const getPercentage = (count) => {
+    if (totalSessions === 0) return 0;
+    return Math.round((count / totalSessions) * 100);
+  };
 
   return (
     <main className="mx-auto max-w-md space-y-4 px-3 pb-[calc(var(--nav-total-height)+1rem)] pt-3">
@@ -69,6 +96,70 @@ export const ProgressView = ({ state }) => {
             Based on {mix.total} logged training sessions.
           </p>
         )}
+      </section>
+
+      {/* Consistency Trends */}
+      <section className="rounded-[2rem] border border-[#D8CFBE] bg-[#FFFCF4] p-5" data-testid="consistency-trends-panel">
+        <h3 className="text-sm font-black uppercase tracking-wide text-[#171915] mb-4">
+          Consistency Trends
+        </h3>
+        <div className="space-y-5">
+          {/* Duration Mix */}
+          <div>
+            <h4 className="text-xs font-black uppercase tracking-wide text-[#626A5E] mb-2">
+              {t.trendDurationMix} ({totalSessions})
+            </h4>
+            <div className="space-y-3">
+              {[15, 30, 50].map((mins) => {
+                const count = durationCounts[mins];
+                const pct = getPercentage(count);
+                return (
+                  <div key={mins} className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-[#626A5E]">
+                      <span>{t[`duration${mins}`]}</span>
+                      <span>{pct}% ({count})</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-[#E8E0D1]">
+                      <div
+                        className="h-full rounded-full bg-[#2F6F5E] transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Energy Mix */}
+          <div className="border-t border-[#D8CFBE]/50 pt-4">
+            <h4 className="text-xs font-black uppercase tracking-wide text-[#626A5E] mb-2">
+              {t.trendHabitFallbacks}
+            </h4>
+            <div className="space-y-3">
+              {[
+                { label: t.lowEnergyOn, count: energyCounts.low, color: 'bg-[#A6422F]' },
+                { label: 'Normal Intensity', count: energyCounts.normal, color: 'bg-[#2F6F5E]' }
+              ].map(({ label, count, color }) => {
+                const pct = getPercentage(count);
+                return (
+                  <div key={label} className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-[#626A5E]">
+                      <span>{label}</span>
+                      <span>{pct}% ({count})</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-[#E8E0D1]">
+                      <div
+                        className={`h-full rounded-full ${color} transition-all duration-500`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Benchmarks & Lifts */}

@@ -99,7 +99,7 @@ const workoutDataBase = [
     ]),
     hotel: withMobility([
       { name: "Bodyweight Squats", desc: "Quad focus", sets: "4", reps: "15-20", rest: "75s", restSeconds: 75, category: "legs", noWeight: true, instructions: "Use a slow descent and full-foot pressure. Elevate heels on a book if it improves depth." },
-      { name: "Bulgarian Split Squats", desc: "Rear foot on bed/chair", sets: "3", reps: "8-12/leg", rest: "60s", restSeconds: 60, category: "legs", noWeight: true, instructions: "Keep the front knee tracking and lean slightly forward to protect the knee while loading the glute." },
+      { name: "Bulgarian Split Squats", desc: "Rear foot on bed/chair", sets: "3", reps: "8-12/leg", rest: "60s", restSeconds: 60, category: "legs", noWeight: true, instructions: "Keep the front knee tracking and lean slightly forward to protect the knee while loading the glute.", safetyCaution: "Ensure the bed or chair is fully stable, non-slip, and can safely support your body weight before placing your foot." },
       { name: "Reverse Lunges", desc: "Travel legs", sets: "3", reps: "10-12/leg", rest: "60s", restSeconds: 60, category: "legs", noWeight: true, instructions: "Step back with control and keep the torso tall enough to maintain balance." },
       { name: "Forearm Plank Reach-Throughs", desc: "Anti-rotation core", sets: "3", reps: "10/side", rest: "45s", restSeconds: 45, category: "core", noWeight: true, instructions: "Reach one hand under the torso without rolling the hips, then return to a square plank." },
     ]),
@@ -112,7 +112,7 @@ const workoutDataBase = [
       { name: "Dead Bugs", position: "Floor", desc: "Slow core control", sets: "3", reps: "12/side", rest: "45s", restSeconds: 45, category: "core", noWeight: true, instructions: "Move slowly and keep the lower back connected to the floor through every rep." },
     ]),
     hotel: withMobility([
-      { name: "Towel Door Rows", desc: "Back strength", sets: "4", reps: "8-12", rest: "90s", restSeconds: 90, category: "pull", noWeight: true, instructions: "Anchor a towel securely around a closed door handle and row with a braced trunk. Use only a safe, solid setup.", alt: { name: "Bed Frame Rows", desc: "Back strength", reps: "8-12", instructions: "Use a stable bed frame only if it is safe and does not move." } },
+      { name: "Towel Door Rows", desc: "Back strength", sets: "4", reps: "8-12", rest: "90s", restSeconds: 90, category: "pull", noWeight: true, instructions: "Anchor a towel securely around a closed door handle and row with a braced trunk. Use only a safe, solid setup.", safetyCaution: "Verify that the door closes securely away from you, and test the handle and anchor strength before putting full weight on the towel.", alt: { name: "Bed Frame Rows", desc: "Back strength", reps: "8-12", instructions: "Use a stable bed frame only if it is safe and does not move.", safetyCaution: "Check that the bed frame is solid, heavy, and will not slide or tip over under your pulling force." } },
       { name: "Prone Lat Pulls + Reverse Snow Angels", desc: "Back superset", sets: "3", reps: "12 + 12-15", rest: "60s", restSeconds: 60, category: "pull", noWeight: true, instructions: "On the floor, pull elbows toward ribs from overhead, then sweep arms through reverse snow angels." },
       { name: "Dead Bugs", desc: "Slow core control", sets: "3", reps: "12/side", rest: "45s", restSeconds: 45, category: "core", noWeight: true, instructions: "Keep the ribs down and lower back fixed to the floor." },
     ]),
@@ -126,7 +126,7 @@ const workoutDataBase = [
       { name: "Side Planks", position: "Floor", desc: "Lateral core", sets: "3", reps: "45s/side", rest: "30s", restSeconds: 30, category: "core", noWeight: true, instructions: "Stack shoulder, ribs, hips, and feet. Keep the waist lifted for the full hold." },
     ]),
     hotel: withMobility([
-      { name: "Bodyweight Step-Ups", desc: "Chair/step", sets: "3", reps: "15/leg", rest: "45s", restSeconds: 45, category: "recovery", noWeight: true, instructions: "Use a stable chair, stair, or low platform. Keep the movement easy and controlled." },
+      { name: "Bodyweight Step-Ups", desc: "Chair/step", sets: "3", reps: "15/leg", rest: "45s", restSeconds: 45, category: "recovery", noWeight: true, instructions: "Use a stable chair, stair, or low platform. Keep the movement easy and controlled.", safetyCaution: "Use a sturdy, flat-surfaced chair or platform. Avoid using folding chairs, wheeled objects, or slippery surfaces." },
       { name: "Isometric Glute Bridges", desc: "Floor hold", sets: "4", reps: "45s", rest: "45s", restSeconds: 45, category: "core", noWeight: true, instructions: "Hold the bridge from the floor if no bench is available, keeping ribs down and glutes active." },
       { name: "Bird-Dogs", desc: "Spinal control", sets: "3", reps: "10/side", rest: "30s", restSeconds: 30, category: "core", noWeight: true, instructions: "Move slowly and avoid shifting weight side to side." },
       { name: "Side Planks", desc: "Lateral core", sets: "3", reps: "45s/side", rest: "30s", restSeconds: 30, category: "core", noWeight: true, instructions: "Use knees down if needed to keep a clean line and steady breathing." },
@@ -187,6 +187,7 @@ const localizeExercise = (exercise, workoutCopy, includeAlternates = true) => ({
   desc: translateWorkoutText(exercise.desc, workoutCopy),
   reps: translateWorkoutText(exercise.reps, workoutCopy),
   instructions: translateWorkoutText(exercise.instructions, workoutCopy),
+  safetyCaution: translateWorkoutText(exercise.safetyCaution, workoutCopy),
   alt: exercise.alt ? localizeExercise(exercise.alt, workoutCopy, false) : undefined,
   altOptions: includeAlternates ? uniqueAlternates(exercise).map((option) => localizeExercise(option, workoutCopy, false)) : [],
 });

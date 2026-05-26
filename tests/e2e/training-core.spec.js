@@ -435,6 +435,25 @@ test('supports travel-week mode, dynamic warm-up loads, and per-exercise history
   // Complete session
   await page.getByRole('button', { name: 'End session' }).click();
 
+  // Verify that the finish summary card displays detailed exercise logs
+  await expect(page.getByTestId('finish-exercise-summary')).toBeVisible();
+  await expect(page.getByTestId('finish-exercise-summary')).toContainText('DB Bench Press');
+  await expect(page.getByTestId('finish-exercise-summary')).toContainText('4/4 sets');
+  await expect(page.getByTestId('finish-exercise-summary')).toContainText('Load: 110 lbs');
+  await expect(page.getByTestId('finish-exercise-summary')).toContainText('RPE: 9');
+  await expect(page.getByTestId('finish-exercise-summary')).toContainText('solid push');
+
+  await page.getByRole('button', { name: 'Back to today' }).click();
+  await expect(page.getByTestId('finish-exercise-summary')).toBeHidden();
+
+  // Now, verify consistency trends show up on the Progress view
+  await page.getByRole('button', { name: 'Progress' }).click();
+  await expect(page.getByTestId('consistency-trends-panel')).toBeVisible();
+  await expect(page.getByTestId('consistency-trends-panel')).toContainText('50 min');
+  await expect(page.getByTestId('consistency-trends-panel')).toContainText('100% (1)');
+  await expect(page.getByTestId('consistency-trends-panel')).toContainText('Normal Intensity');
+  await expect(page.getByTestId('consistency-trends-panel')).toContainText('100% (1)');
+
   // Verify that it populated exerciseHistory in IndexedDB
   await expect.poll(() => getProfileData(page)).toMatchObject({
     exerciseHistory: {
@@ -450,11 +469,39 @@ test('supports travel-week mode, dynamic warm-up loads, and per-exercise history
     },
   });
 
-  // Now, open history drawer from Progress view and verify the completed log shows up
-  await page.getByRole('button', { name: 'Progress' }).click();
+  // Open history drawer from Progress view and verify the completed log shows up
   await page.getByRole('button', { name: 'DB Bench Press' }).click();
   await expect(page.getByTestId('history-drawer')).toBeVisible();
   await expect(page.getByTestId('history-drawer')).toContainText('110 lbs');
   await expect(page.getByTestId('history-drawer')).toContainText('solid push');
   await expect(page.getByTestId('history-drawer')).toContainText('4/4 sets');
+  await page.getByRole('button', { name: 'Close drawer' }).click();
+
+  // Go back to Today tab and turn on Travel-Week Mode to test Hotel cautions
+  await page.getByRole('button', { name: 'Today' }).click();
+  await page.getByRole('button', { name: 'Travel-Week Mode' }).click();
+  await expect(page.getByRole('button', { name: 'Travel-Week ON' })).toBeVisible();
+
+  // Go to Plan tab and open Tuesday's workout (index 1) to test Bulgarian Split Squats caution warning
+  await page.getByRole('button', { name: 'Plan' }).click();
+  await page.getByRole('button', { name: 'Tuesday' }).click();
+  await page.getByRole('button', { name: 'Skip warm-up' }).click();
+
+  // The first exercise on Tuesday is Bodyweight Squats (no caution)
+  await expect(page.getByRole('heading', { name: 'Bodyweight Squats' })).toBeVisible();
+  await expect(page.getByTestId('safety-caution-box')).toBeHidden();
+
+  // Go to next exercise (Bulgarian Split Squats)
+  await page.getByRole('button', { name: 'Next exercise' }).last().click();
+  await expect(page.getByRole('heading', { name: 'Bulgarian Split Squats' })).toBeVisible();
+
+  // Assert that safety caution box is visible and contains the warning
+  await expect(page.getByTestId('safety-caution-box')).toBeVisible();
+  await expect(page.getByTestId('safety-caution-box')).toContainText('Safety Caution');
+  await expect(page.getByTestId('safety-caution-box')).toContainText(
+    'Ensure the bed or chair is fully stable, non-slip, and can safely support your body weight before placing your foot.'
+  );
+
+  // Clean up by ending the session
+  await page.getByRole('button', { name: 'End session' }).click();
 });

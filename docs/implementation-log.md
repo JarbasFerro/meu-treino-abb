@@ -2,6 +2,17 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Travel cautions, completed summaries, and consistency trends
+
+- Added `safetyCaution` warnings directly on hotel exercises using furniture or door anchors (Bulgarian Split Squats, Towel Door Rows, Bed Frame Rows, Bodyweight Step-Ups).
+- Rendered prominent amber highlighted safety warning cards during active session execution in `SessionView.jsx`.
+- Extended `getSessionSummary()` to construct `exerciseSummaryList` containing detailed set counts, weights, RPEs, and notes for all exercises completed in that session.
+- Updated the workout log finish card in `TodayView.jsx` to render the completed exercises log list.
+- Implemented visual horizontal consistency trend charts in `ProgressView.jsx` showing the percentage mix of session durations and energy intensity levels from the last 30 sessions in `sessionMetrics`.
+- Added translation keys in `src/data/i18n.js` for Trend titles, highlights, and warning labels.
+- Extended Playwright E2E coverage in `tests/e2e/training-core.spec.js` to assert the rendering of safety warnings, finish summaries, and trend aggregates.
+- Verified build and check bundle budget: main app shell stands at 272.32 kB (under the 275 kB budget). Verified all unit and E2E tests pass (11/11 tests green).
+
 ## 2026-05-26 - Dynamic warm-ups, per-exercise history, and travel templates
 
 - Added `exerciseHistory` and `travelWeekMode` to IndexedDB profile schema, normalization, and validation rules, covered by unit tests.
