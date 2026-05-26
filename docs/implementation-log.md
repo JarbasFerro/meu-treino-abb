@@ -2,6 +2,15 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Start-first Today and bundle guardrail
+
+- Moved Today start actions above secondary metrics and the Next Up card so `15 min`, `30 min`, `50 min`, Low Energy, and Resume are visible earlier on the iPhone 15 Pro first viewport.
+- Added display-only load hints in Today and active sessions using existing weight and personal-record data, including neutral no-history copy and warm-up load guidance for weighted exercises.
+- Added `npm run check:bundle`, which reads the built main app shell from `dist/index.html` and fails above 275 kB minified; current shell verified at 257.25 kB.
+- Added `docs/iphone-pwa-validation-results.md` and linked it from the physical iPhone checklist so real Home Screen validation runs can be recorded without fabricating device results.
+- Extended Playwright coverage for start-action first-viewport placement, empty load-hint state, and seeded-history load hints.
+- Verified with `npm run lint`, `npm run build`, `npm run check:bundle`, `npm run test:unit`, and `npm run test:e2e`.
+
 ## 2026-05-26 - iPhone 15 Pro UI backlog update
 
 - Added next-step requirements to optimize the PWA specifically for iPhone 15 Pro as the target device.

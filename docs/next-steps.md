@@ -18,7 +18,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - Validate the new iPhone 15 Pro layout on a physical Home Screen PWA install, including dynamic island safe-area behavior, standalone status bar color, compact header controls, rest timer stacking, and bottom home-indicator spacing.
 - Verify the IndexedDB migration on a real iPhone PWA install with existing localStorage data, then document the exact install, refresh, offline, and upgrade behavior.
-- Use `docs/iphone-pwa-validation.md` to run and document the physical iPhone Home Screen PWA install, refresh, offline, upgrade, and migration behavior.
+- Use `docs/iphone-pwa-validation.md` and `docs/iphone-pwa-validation-results.md` to run and document the physical iPhone Home Screen PWA install, refresh, offline, upgrade, and migration behavior.
 - Add unit-level coverage for any new storage rules as they are introduced.
 - Keep `npm audit --audit-level=moderate` at zero findings after dependency updates.
 
@@ -27,8 +27,8 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 - Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
 - Improve session finish summaries with clearer best lift/core note selection once richer per-exercise history views exist.
 - Continue one-handed active-session polish after physical iPhone testing, especially whether the compact three-column primary action row remains readable during real use.
-- Revisit Today density after a week of use: decide whether the start buttons should move above secondary metrics so session start is visible earlier on the iPhone 15 Pro first viewport.
-- Add warm-up load suggestions for weighted exercises when enough history exists.
+- Refine Today density after physical iPhone use: validate whether the new start-first card still leaves enough context above the fold.
+- Refine warm-up load suggestions after real use: decide whether they should estimate a numeric warm-up load or stay as guidance-only copy.
 
 ## P1 - Travel, Equipment, And Replacement Quality
 
@@ -76,7 +76,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 ## Engineering Quality
 
 - Split `src/App.jsx` into focused modules: app shell, profile loading, Firebase sync, Today, Plan, Progress, Session, import/export, analytics, and hooks.
-- Add an automated bundle budget so the initial app shell does not regress above the current ~262 kB minified JS asset.
+- Keep `npm run check:bundle` current as the automated bundle budget; adjust the 275 kB threshold only with an implementation-log note explaining the tradeoff.
 - Review Workbox runtime caching after media assets exist: shell precache, navigation fallback, stale-while-revalidate static assets, and predictable offline behavior.
 - Add a hard-coded string audit script for app UI copy outside `src/data/i18n.js` and workout data.
 - Extend browser-based visual checks when new views or long labels are added.

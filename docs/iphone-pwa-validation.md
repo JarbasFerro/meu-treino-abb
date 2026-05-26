@@ -1,6 +1,6 @@
 # iPhone PWA Validation Checklist
 
-Use this checklist on an iPhone 15 Pro after installing the GitHub Pages app to the Home Screen.
+Use this checklist on an iPhone 15 Pro after installing the GitHub Pages app to the Home Screen. Record each physical run in `docs/iphone-pwa-validation-results.md`.
 
 ## Install And Shell
 

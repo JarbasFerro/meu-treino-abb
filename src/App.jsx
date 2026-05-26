@@ -483,6 +483,22 @@ const App = () => {
     };
   };
 
+  const getLoadHint = (dayIndex, sessionMode, exIndex, exercise) => {
+    if (!exercise || exercise.noWeight) return null;
+    const key = `${dayIndex}-${sessionMode}-${exIndex}`;
+    const lastLoad = weights[key] || '';
+    const bestLoad = personalRecords[key]?.bestLoad || '';
+    const primaryLoad = lastLoad || bestLoad;
+
+    return {
+      lastLoad,
+      bestLoad,
+      primary: primaryLoad ? `${t.suggestedWorkingLoad}: ${primaryLoad}` : t.noLoadHistory,
+      warmup: primaryLoad ? `${t.warmupLoadSuggestion}: ${t.warmupLoadBody}` : t.noLoadHistory,
+      best: bestLoad ? `${t.bestKnownLoad}: ${bestLoad}` : '',
+    };
+  };
+
   const downloadTextFile = (fileName, text, type) => {
     const blob = new Blob([text], { type });
     const url = URL.createObjectURL(blob);
@@ -796,13 +812,20 @@ const App = () => {
   const firstCue = todaySummary.exercises[0]
     ? getExerciseGuidance(todaySummary.exercises[0], todaySummary.exercises[0]).cues[0]
     : t.allDone;
-  const lastRelevantLoad = (() => {
+  const firstWeightedExercise = (() => {
     const exercises = workoutData[currentDayIndex]?.[mode] || [];
-    const loaded = exercises.find((exercise, index) => !exercise.noWeight && weights[`${currentDayIndex}-${mode}-${index}`]);
-    if (!loaded) return t.noPreviousLoad;
-    const index = exercises.indexOf(loaded);
-    return `${loaded.name}: ${weights[`${currentDayIndex}-${mode}-${index}`]}`;
+    const exerciseIndex = exercises.findIndex((exercise) => !exercise.noWeight);
+    if (exerciseIndex < 0) return null;
+    return { exercise: exercises[exerciseIndex], exerciseIndex };
   })();
+  const todayLoadHint = firstWeightedExercise
+    ? getLoadHint(currentDayIndex, mode, firstWeightedExercise.exerciseIndex, firstWeightedExercise.exercise)
+    : null;
+  const lastRelevantLoad = todayLoadHint?.lastLoad
+    ? `${firstWeightedExercise.exercise.name}: ${todayLoadHint.lastLoad}`
+    : todayLoadHint?.bestLoad
+      ? `${firstWeightedExercise.exercise.name}: ${todayLoadHint.bestLoad}`
+      : t.noPreviousLoad;
   const storageUsageRatio = storageStatus.estimate?.quota
     ? (storageStatus.estimate.usage || 0) / storageStatus.estimate.quota
     : 0;
@@ -851,7 +874,21 @@ const App = () => {
             <div className="sm:min-w-64"><ModeSwitch mode={mode} setMode={setMode} t={t} /></div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2" data-testid="today-start-actions">
+            {activeSession && <button onClick={() => setActiveView('session')} className="col-span-2 min-h-12 rounded-2xl border border-[#D8CFBE] bg-white px-4 text-sm font-black text-[#17352D]">{t.resumeSession}</button>}
+            {DURATION_OPTIONS.map((duration) => (
+              <button
+                key={duration}
+                onClick={() => startSession(duration, false)}
+                className={`min-h-12 rounded-2xl px-4 text-sm font-black ${sessionDuration === duration ? 'bg-[#17352D] text-white' : 'border border-[#D8CFBE] bg-white text-[#17352D]'}`}
+              >
+                {t[`duration${duration}`]}
+              </button>
+            ))}
+            <button onClick={() => startSession(sessionDuration, true)} className="min-h-12 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-4 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
             <Metric label={t.metricToday} value={`${getDayProgress(currentDayIndex, mode, jetLagMode, sessionDuration)}%`} />
             <Metric label={t.metricSets} value={`${todaySummary.completed}/${todaySummary.totalSets}`} />
             <Metric label={t.metricStreak} value={calculateStreak()} />
@@ -868,6 +905,15 @@ const App = () => {
             <Metric label={t.firstCue} value={firstCue} />
           </div>
 
+          {todayLoadHint && (
+            <div data-testid="today-load-hint" className="mt-3 rounded-3xl border border-[#D8CFBE] bg-white p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.loadSuggestion}</p>
+              <p className="mt-1 text-sm font-black text-[#17352D]">{todayLoadHint.primary}</p>
+              <p className="mt-1 text-xs font-bold leading-relaxed text-[#626A5E]">{todayLoadHint.warmup}</p>
+              {todayLoadHint.best && <p className="mt-1 text-xs font-black text-[#626A5E]">{todayLoadHint.best}</p>}
+            </div>
+          )}
+
           <div className="mt-4 rounded-3xl bg-[#ECE5D8] p-4">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#626A5E]">{t.nextUp}</p>
             <h3 className="mt-1 text-2xl font-black text-[#171915]">{next ? next.name : t.sessionComplete}</h3>
@@ -876,19 +922,6 @@ const App = () => {
             </p>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {DURATION_OPTIONS.map((duration) => (
-              <button
-                key={duration}
-                onClick={() => startSession(duration, false)}
-                className={`min-h-12 rounded-2xl px-4 text-sm font-black ${sessionDuration === duration ? 'bg-[#17352D] text-white' : 'border border-[#D8CFBE] bg-white text-[#17352D]'}`}
-              >
-                {t[`duration${duration}`]}
-              </button>
-            ))}
-            <button onClick={() => startSession(sessionDuration, true)} className="min-h-12 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-4 text-sm font-black text-[#654C12]">{t.lowEnergySession}<span className="block text-[10px] font-bold">{t.habitFallback}</span></button>
-            {activeSession && <button onClick={() => setActiveView('session')} className="min-h-12 rounded-2xl border border-[#D8CFBE] bg-white px-4 text-sm font-black text-[#17352D]">{t.resumeSession}</button>}
-          </div>
         </section>
 
         {finishSummary && (
@@ -1004,6 +1037,7 @@ const App = () => {
     const nextExercise = exercises[exerciseIndex + 1];
     const exerciseStats = getExerciseStats(activeSession.dayIndex, sessionMode, exerciseIndex);
     const currentWeight = exerciseStats.currentWeight;
+    const exerciseLoadHint = getLoadHint(activeSession.dayIndex, sessionMode, exerciseIndex, exercise);
 
     const moveToNextExercise = () => {
       if (exerciseIndex >= exercises.length - 1) {
@@ -1082,6 +1116,15 @@ const App = () => {
             <Metric label={t.bestLoad} value={exerciseStats.bestLoad || t.noPreviousLoad} />
             <Metric label={t.bestSets} value={exerciseStats.bestSetCount || 0} />
           </div>
+
+          {exerciseLoadHint && (
+            <div data-testid="session-load-hint" className="mb-5 rounded-3xl border border-[#D8CFBE] bg-white p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.loadSuggestion}</p>
+              <p className="mt-1 text-sm font-black text-[#17352D]">{exerciseLoadHint.primary}</p>
+              <p className="mt-1 text-xs font-bold leading-relaxed text-[#626A5E]">{exerciseLoadHint.warmup}</p>
+              {exerciseLoadHint.best && <p className="mt-1 text-xs font-black text-[#626A5E]">{exerciseLoadHint.best}</p>}
+            </div>
+          )}
 
           <div className="rounded-3xl bg-[#ECE5D8] p-4">
             <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.targetLabel}</p>

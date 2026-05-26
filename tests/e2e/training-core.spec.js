@@ -67,10 +67,12 @@ test('migrates legacy localStorage into IndexedDB without deleting legacy data',
 
 test('starts and resumes an active session with logged set details', async ({ page }) => {
   await openApp(page);
+  await expect(page.getByTestId('today-load-hint')).toContainText('No load history yet');
   await page.getByRole('button', { name: '50 min' }).click();
   await expect(page.getByText('Quick warm-up')).toBeVisible();
   await page.getByRole('button', { name: 'Warm-up done' }).click();
   await expect(page.getByText('Active session')).toBeVisible();
+  await expect(page.getByTestId('session-load-hint')).toContainText('No load history yet');
 
   const loadInput = page.getByPlaceholder('Load').first();
   await loadInput.fill('24');
@@ -96,6 +98,23 @@ test('starts and resumes an active session with logged set details', async ({ pa
       expect.objectContaining({ weight: '24', rpe: '7', note: 'steady tempo' }),
     ]),
   );
+});
+
+test('shows display-only load hints from existing local history', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('abbWeights', JSON.stringify(
+      Object.fromEntries(Array.from({ length: 7 }, (_, dayIndex) => [`${dayIndex}-home-0`, '22'])),
+    ));
+  });
+
+  await openApp(page);
+  await expect(page.getByTestId('today-load-hint')).toContainText('Use last load: 22');
+  await expect(page.getByTestId('today-load-hint')).toContainText('Warm-up load');
+
+  await page.getByRole('button', { name: '50 min' }).click();
+  await page.getByRole('button', { name: 'Skip warm-up' }).click();
+  await expect(page.getByTestId('session-load-hint')).toContainText('Use last load: 22');
+  await expect(page.getByPlaceholder('Load').first()).toHaveValue('22');
 });
 
 test('exports JSON, rejects invalid imports, imports valid backups, and exports CSV logs', async ({ page }, testInfo) => {
@@ -210,6 +229,9 @@ test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) =>
 
   await expect(page.getByRole('button', { name: '15 min' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Low energy session/i })).toBeVisible();
+  const startActionsBox = await page.getByTestId('today-start-actions').boundingBox();
+  expect(startActionsBox).toBeTruthy();
+  expect(startActionsBox.y + startActionsBox.height).toBeLessThanOrEqual(page.viewportSize().height * 0.58);
   await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-today.png'), fullPage: false });
 });
 
