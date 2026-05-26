@@ -325,3 +325,136 @@ test('keeps compact header and nav contained with simplified controls', async ({
   expect(headerBox.x + headerBox.width).toBeLessThanOrEqual(viewport.width + 1);
   expect(navBox.x + navBox.width).toBeLessThanOrEqual(viewport.width + 1);
 });
+
+test('supports travel-week mode, dynamic warm-up loads, and per-exercise history drawers', async ({ page }) => {
+  // Mock system Date to be a Monday (May 25, 2026)
+  await page.addInitScript(() => {
+    const mockDate = new Date('2026-05-25T10:00:00Z');
+    const OriginalDate = Date;
+    globalThis.Date = class extends OriginalDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(mockDate);
+        } else {
+          super(...args);
+        }
+      }
+      static now() {
+        return mockDate.getTime();
+      }
+    };
+  });
+
+  // 1. Test Travel-Week Mode toggle
+  await openApp(page);
+  await expect(page.getByTestId('travel-week-card')).toBeVisible();
+
+  // Toggle ON
+  await page.getByRole('button', { name: 'Travel-Week Mode' }).click();
+  await expect(page.getByRole('button', { name: 'Travel-Week ON' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '30 min' })).toBeVisible();
+  await expect(page.getByTestId('hotel-equipment-panel')).toBeVisible();
+  await expect(page.getByTestId('hotel-equipment-panel')).toContainText('Hotel room only');
+
+  // Verify in IndexedDB
+  await expect.poll(() => getProfileData(page)).toMatchObject({
+    travelWeekMode: true,
+    sessionDuration: 30,
+    hotelEquipment: { roomOnly: true },
+  });
+
+  // Toggle OFF
+  await page.getByRole('button', { name: 'Travel-Week ON' }).click();
+  await expect(page.getByRole('button', { name: 'Travel-Week Mode' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
+
+  await expect.poll(() => getProfileData(page)).toMatchObject({
+    travelWeekMode: false,
+    sessionDuration: 50,
+  });
+
+  // 2. Test Dynamic Warm-Up load calculations
+  await page.evaluate(async () => {
+    const request = indexedDB.open('hybridFitDb');
+    const db = await new Promise((resolve) => {
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = db.transaction('profileData', 'readwrite');
+    const store = tx.objectStore('profileData');
+    const profile = await new Promise((resolve) => {
+      store.get('jarbas').onsuccess = (e) => resolve(e.target.result);
+    });
+    // Set a load history for Monday Home Flat Bench DB Bench Press (day Index 0, home mode, exercise 0)
+    profile.weights['0-home-0'] = '100 kg';
+    profile.personalRecords['0-home-0'] = { bestLoad: 100, bestLoadAt: new Date().toISOString(), bestSetCount: 4 };
+    await new Promise((resolve) => {
+      store.put(profile).onsuccess = () => resolve();
+    });
+  });
+
+  await page.reload();
+  await openApp(page);
+
+  // Check that the Today load hint displays dynamic warm-up load suggestions
+  await expect(page.getByTestId('today-load-hint')).toContainText('Warm-up: 50% (50 kg), 70% (70 kg), 90% (90 kg)');
+
+  // 3. Test opening the history drawer via "Last load" Metric
+  await page.getByText('Last load', { exact: true }).click();
+  await expect(page.getByTestId('history-drawer')).toBeVisible();
+  await expect(page.getByTestId('history-drawer').getByRole('heading', { name: 'DB Bench Press' })).toBeVisible();
+  await expect(page.getByTestId('history-drawer')).toContainText('100');
+  await page.getByRole('button', { name: 'Close drawer' }).click();
+  await expect(page.getByTestId('history-drawer')).toBeHidden();
+
+  // 4. Test opening history drawer from Progress View
+  await page.getByRole('button', { name: 'Progress' }).click();
+  await expect(page.getByRole('heading', { name: 'Benchmarks & Lifts' })).toBeVisible();
+  // Click 'DB Bench Press' benchmark lift card
+  await page.getByRole('button', { name: 'DB Bench Press' }).click();
+  await expect(page.getByTestId('history-drawer')).toBeVisible();
+  await page.getByRole('button', { name: 'Close drawer' }).click();
+  await expect(page.getByTestId('history-drawer')).toBeHidden();
+
+  // 5. Test writing a new session log and completing it, to populate exercise history
+  await page.getByRole('button', { name: 'Today' }).click();
+  await page.getByRole('button', { name: '50 min' }).click();
+  await page.getByRole('button', { name: 'Warm-up done' }).click();
+
+  // Update Weight, RPE, note
+  const loadInput = page.getByPlaceholder('Load').first();
+  await loadInput.fill('110 lbs');
+  await page.getByPlaceholder(/Adjustments/).fill('solid push');
+  await page.locator('select').selectOption('9');
+
+  // Complete all 4 sets
+  await page.getByRole('button', { name: '1', exact: true }).click();
+  await page.getByRole('button', { name: '2', exact: true }).click();
+  await page.getByRole('button', { name: '3', exact: true }).click();
+  await page.getByRole('button', { name: '4', exact: true }).click();
+
+  // Complete session
+  await page.getByRole('button', { name: 'End session' }).click();
+
+  // Verify that it populated exerciseHistory in IndexedDB
+  await expect.poll(() => getProfileData(page)).toMatchObject({
+    exerciseHistory: {
+      'DB Bench Press': [
+        expect.objectContaining({
+          weight: '110 lbs',
+          rpe: '9',
+          note: 'solid push',
+          completedSets: 4,
+          totalSets: 4,
+        }),
+      ],
+    },
+  });
+
+  // Now, open history drawer from Progress view and verify the completed log shows up
+  await page.getByRole('button', { name: 'Progress' }).click();
+  await page.getByRole('button', { name: 'DB Bench Press' }).click();
+  await expect(page.getByTestId('history-drawer')).toBeVisible();
+  await expect(page.getByTestId('history-drawer')).toContainText('110 lbs');
+  await expect(page.getByTestId('history-drawer')).toContainText('solid push');
+  await expect(page.getByTestId('history-drawer')).toContainText('4/4 sets');
+});

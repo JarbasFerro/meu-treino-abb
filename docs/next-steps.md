@@ -25,18 +25,18 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 ## P1 - Today And Active-Session Execution
 
 - Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
-- Improve session finish summaries with clearer best lift/core note selection once richer per-exercise history views exist.
+- Improve session finish summaries with clearer best lift/core note selection (now that `exerciseHistory` exists, pull exercise-specific highlights directly into the finish card).
 - Continue one-handed active-session polish after physical iPhone testing, especially whether the compact three-column primary action row remains readable during real use.
-- Refine Today density after physical iPhone use: validate whether the new start-first card still leaves enough context above the fold.
-- Refine warm-up load suggestions after real use: decide whether they should estimate a numeric warm-up load or stay as guidance-only copy.
+- Refine Today density after physical iPhone use: validate whether the new start-first card and the travel-week card still leave enough context above the fold.
+- [DONE] Refine warm-up load suggestions: calculate dynamic percentages (50%, 70%, 90%) of previous or best working load.
 
 ## P1 - Travel, Equipment, And Replacement Quality
 
 - Refine the Hotel equipment checklist after physical travel use, especially whether "room only" should hide more original planned exercises or simply bias swap choices.
 - Refine equipment-aware swaps after real use: improve exercise-specific alternatives and decide whether unavailable original exercises need stronger warnings.
-- Add travel-week templates that preserve the same day order but bias toward dumbbell/bodyweight alternatives and shorter duration choices.
+- [DONE] Add travel-week templates: implemented via a unified "Travel-Week Mode" toggle that switches to Hotel mode, sets duration to 30 min, and restricts equipment to "Room-Only".
 - Add richer mode-specific equipment notes in Today, including warnings for hotel movements that depend on furniture stability.
-- Track environment mix locally: Home, Hotel, and Low Energy frequency over time.
+- [DONE] Track environment mix locally: Home, Hotel, and Low Energy frequencies are stored in `sessionMetrics` and shown in `ProgressView`.
 
 ## P1 - Beginner Guidance, Safety, And Progression
 
@@ -59,12 +59,12 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P2 - Progress And Analytics
 
-- Build richer progression views for a small set of anchor lifts and core benchmarks instead of a broad sports-science dashboard.
-- Add per-exercise history sheets with recent loads, notes, RPE, completed sets, and PRs.
-- Add simple trend views for training-day completion, session completion rate, Home/Hotel mix, Low Energy use, swap frequency, timer use, and sync retry success.
+- [DONE] Build richer progression views: implemented a "Benchmarks & Lifts" section in ProgressView presenting anchor lifts.
+- [DONE] Add per-exercise history sheets: implemented `HistoryDrawer` using `<dialog>` with slide transitions showing recent sets, loads, notes, and PRs.
+- Add simple trend charts using `sessionMetrics` and `exerciseHistory`: training-day completion over time, session duration breakdown, Home/Hotel/Low Energy frequencies mix, and swap count averages.
 - Add local-only friction analytics: time-to-start, abandon-before-start, session interruptions, completed duration version, and offline write success.
 - Add a core-strength milestone view that makes planks, carries, anti-rotation work, and bracing progress easy to understand.
-- Preserve CSV export and extend it when new metrics are added.
+- Preserve CSV export and extend it when new metrics (like `exerciseHistory` entries) are added.
 
 ## P3 - Optional Social And Accountability
 

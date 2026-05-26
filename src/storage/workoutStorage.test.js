@@ -48,6 +48,7 @@ describe('single-profile backup validation', () => {
     expect(validateProfileBackup({ ...validBackup, hotelEquipment: [] })).toMatchObject({ valid: false, reason: 'invalidField', field: 'hotelEquipment' });
     expect(validateProfileBackup({ ...validBackup, hotelEquipment: { floorSpace: 'yes' } })).toMatchObject({ valid: false, reason: 'invalidField', field: 'hotelEquipment' });
     expect(validateProfileBackup({ ...validBackup, hotelEquipment: { squatRack: true } })).toMatchObject({ valid: false, reason: 'invalidField', field: 'hotelEquipment' });
+    expect(validateProfileBackup({ ...validBackup, exerciseHistory: [] })).toMatchObject({ valid: false, reason: 'invalidField', field: 'exerciseHistory' });
     expect(validateProfileBackup({ ...validBackup, profileId: 'isabella' })).toMatchObject({ valid: false, reason: 'unknownProfile' });
   });
 });
@@ -71,6 +72,7 @@ describe('profile normalization and import', () => {
       personalRecords: {},
       setLog: {},
       hotelEquipment: DEFAULT_HOTEL_EQUIPMENT,
+      exerciseHistory: {},
     });
   });
 

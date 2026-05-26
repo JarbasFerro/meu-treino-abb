@@ -2,6 +2,17 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Dynamic warm-ups, per-exercise history, and travel templates
+
+- Added `exerciseHistory` and `travelWeekMode` to IndexedDB profile schema, normalization, and validation rules, covered by unit tests.
+- Added dynamic warm-up load calculations (50%, 70%, 90% steps) based on the working weight/PR for weighted exercises.
+- Created `HistoryDrawer.jsx` rendering a premium, native slide-up sheet using `<dialog>` with slide-in animations and click-outside light-dismiss.
+- Implemented automatic logging of completed exercises and sets to `exerciseHistory` on workout completion.
+- Added a "Benchmarks & Lifts" section in `ProgressView.jsx` showing major benchmark cards and their PRs, and interactive triggers in `TodayView.jsx` (on "Last load" metric) and `SessionView.jsx` (next to name) to open the history drawer.
+- Implemented "Travel-Week Mode" card toggle on Today dashboard, which configures Hotel mode, a 30-min duration, and Room-Only bodyweight swaps automatically.
+- Applied code-splitting via React `lazy` and `Suspense` for `PlanView`, `ProgressView`, and `HistoryDrawer`, successfully dropping the main app bundle size to 269.51 kB (well within the 275 kB budget).
+- Extended mobile Playwright E2E tests for Travel-Week Mode, dynamic warm-up loads, and per-exercise history logging under a mocked Monday timezone, passing all 11/11 tests.
+
 ## 2026-05-26 - Hotel equipment and swap quality
 
 - Added `hotelEquipment` profile data with default room-only/floor-space setup, backup normalization, validation, and unit coverage for older backups and malformed equipment shapes.

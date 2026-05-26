@@ -75,6 +75,8 @@ const emptyProfileData = (profileId) => ({
   sessionMetrics: [],
   sessionDuration: 50,
   hotelEquipment: DEFAULT_HOTEL_EQUIPMENT,
+  exerciseHistory: {},
+  travelWeekMode: false,
   storageVersion: STORAGE_VERSION,
   updatedAt: new Date().toISOString(),
 });
@@ -103,6 +105,8 @@ export const normalizeProfileData = (profileId, data = {}) => ({
   sessionMetrics: Array.isArray(data.sessionMetrics) ? data.sessionMetrics : [],
   sessionDuration: [15, 30, 50].includes(data.sessionDuration) ? data.sessionDuration : 50,
   hotelEquipment: normalizeHotelEquipment(data.hotelEquipment),
+  exerciseHistory: data.exerciseHistory || {},
+  travelWeekMode: data.travelWeekMode || false,
   storageVersion: STORAGE_VERSION,
   updatedAt: data.updatedAt || new Date().toISOString(),
 });
@@ -125,6 +129,7 @@ export const validateProfileBackup = (data) => {
     'rpeLog',
     'personalRecords',
     'setLog',
+    'exerciseHistory',
   ].find((field) => field in data && !isPlainObject(data[field]));
   if (invalidObjectField) {
     return { valid: false, reason: 'invalidField', field: invalidObjectField };
