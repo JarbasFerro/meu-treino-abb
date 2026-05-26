@@ -50,7 +50,7 @@ npm run build
 
 ## Optional Firebase Sync
 
-The app works without Firebase. To enable cloud sync, copy `.env.example` to `.env.local` and fill the Vite Firebase variables.
+The app works without Firebase. To enable cloud sync, copy `.env.example` to `.env.local` and fill the Vite Firebase variables. Firebase is lazy-loaded only when those variables are present, so the offline training shell stays small and local-first.
 
 Firestore rules are in `firestore.rules`. The current rules allow authenticated anonymous users to read and write only the single `jarbas` profile document.
 

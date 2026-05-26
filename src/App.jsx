@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { registerSW } from 'virtual:pwa-register';
-import { translations, workoutTranslations } from './data/i18n.js';
+import { translations } from './data/i18n.js';
 import { createWorkoutData } from './data/workouts.js';
 import { BottomNav, ExerciseGuidance, ModeSwitch, RestTimer } from './components/TrainingControls.jsx';
 import {
+  ACTIVE_PROFILE_ID,
   GLOBAL_KEYS,
   LEGACY_KEYS,
   exportProfile,
@@ -23,31 +21,21 @@ import {
   validateProfileBackup,
 } from './storage/workoutStorage.js';
 
-let app, auth, db;
-let firebaseInitialized = false;
-
-try {
-  const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  };
-
-  if (firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    firebaseInitialized = true;
-  }
-} catch (error) {
-  console.warn('Firebase offline/local mode.', error);
-}
-
-const SINGLE_PROFILE_ID = 'jarbas';
 const APP_LANGUAGE = 'en';
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+};
+const firebaseConfigured = Boolean(
+  firebaseConfig.apiKey
+  && firebaseConfig.authDomain
+  && firebaseConfig.projectId
+  && firebaseConfig.appId,
+);
 
 const getSetCount = (exercise, lowEnergy) => {
   const originalSets = parseInt(exercise?.sets, 10) || 1;
@@ -69,7 +57,7 @@ const getSessionSetCount = (exercise, lowEnergy, durationMinutes = 50) => {
 };
 
 const App = () => {
-  const selectedProfile = SINGLE_PROFILE_ID;
+  const activeProfileId = ACTIVE_PROFILE_ID;
   const [activeView, setActiveView] = useState('today');
   const [mode, setMode] = useState('home');
   const [jetLagMode, setJetLagMode] = useState(false);
@@ -81,6 +69,7 @@ const App = () => {
   const [workoutHistory, setWorkoutHistory] = useState({});
   const lang = APP_LANGUAGE;
   const [user, setUser] = useState(null);
+  const [firebaseReady, setFirebaseReady] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
   const [exerciseNotes, setExerciseNotes] = useState({});
@@ -99,12 +88,13 @@ const App = () => {
   const hasLoadedCloudData = useRef(false);
   const hasLoadedLocalData = useRef(false);
   const activeProfileRef = useRef('');
+  const firebaseServicesRef = useRef(null);
   const updateServiceWorkerRef = useRef(null);
   const openedAtRef = useRef(new Date().toISOString());
   const currentDayIndex = (new Date().getDay() + 6) % 7;
 
   const t = translations[lang] || translations.en;
-  const workoutData = useMemo(() => createWorkoutData(t, workoutTranslations[lang] || {}), [lang, t]);
+  const workoutData = useMemo(() => createWorkoutData(t), [t]);
 
   const applyWorkoutData = useCallback((data, options = {}) => {
     setCompletedSets(data.completedSets || {});
@@ -136,11 +126,12 @@ const App = () => {
   }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog, sessionMetrics, sessionDuration]);
 
   const flushOutboxToFirebase = useCallback(() => {
-    if (!firebaseInitialized || !user) return Promise.resolve();
+    const services = firebaseServicesRef.current;
+    if (!firebaseReady || !user || !services) return Promise.resolve();
     return flushSyncOutbox(async (record) => {
       const profileId = record.profileId;
-      const userDocRef = doc(db, 'workout_profiles', profileId, 'app_data', 'workout_data');
-      await setDoc(userDocRef, {
+      const userDocRef = services.doc(services.db, 'workout_profiles', profileId, 'app_data', 'workout_data');
+      await services.setDoc(userDocRef, {
         profileId,
         ...record.data,
         lastSyncedAt: new Date().toISOString(),
@@ -151,7 +142,7 @@ const App = () => {
         setIsSynced(remaining === 0);
       })
       .catch(() => setIsSynced(false));
-  }, [user]);
+  }, [firebaseReady, user]);
 
   useEffect(() => {
     updateServiceWorkerRef.current = registerSW({
@@ -163,24 +154,48 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!firebaseInitialized) return;
+    if (!firebaseConfigured) return undefined;
+    let isMounted = true;
     const initAuth = async () => {
       try {
+        const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, firestore] = await Promise.all([
+          import('firebase/app'),
+          import('firebase/auth'),
+          import('firebase/firestore'),
+        ]);
+        if (!isMounted) return;
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = firestore.getFirestore(app);
+        firebaseServicesRef.current = {
+          auth,
+          db,
+          doc: firestore.doc,
+          setDoc: firestore.setDoc,
+          onSnapshot: firestore.onSnapshot,
+        };
+        setFirebaseReady(true);
         await signInAnonymously(auth);
+        if (!isMounted) return;
+        const unsubscribe = onAuthStateChanged(auth, setUser);
+        firebaseServicesRef.current.unsubscribeAuth = unsubscribe;
       } catch (error) {
         console.warn('Offline auth fallback.', error.message);
+        if (isMounted) setFirebaseReady(false);
       }
     };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      firebaseServicesRef.current?.unsubscribeAuth?.();
+    };
   }, []);
 
   useEffect(() => {
-    if (!selectedProfile) return;
+    if (!activeProfileId) return;
 
     let isMounted = true;
-    activeProfileRef.current = selectedProfile;
+    activeProfileRef.current = activeProfileId;
     hasLoadedCloudData.current = false;
     hasLoadedLocalData.current = false;
     setIsSynced(false);
@@ -188,9 +203,8 @@ const App = () => {
 
     const loadProfile = async () => {
       try {
-        localStorage.setItem(GLOBAL_KEYS.selectedProfile, selectedProfile);
-        await migrateProfileFromLocalStorage(selectedProfile);
-        const localProfileData = await loadProfileData(selectedProfile);
+        await migrateProfileFromLocalStorage(activeProfileId);
+        const localProfileData = await loadProfileData(activeProfileId);
         const [storageResult, estimate, pending] = await Promise.all([
           requestPersistentStorage().catch(() => ({ supported: false, persisted: false })),
           getStorageEstimate().catch(() => null),
@@ -213,14 +227,15 @@ const App = () => {
     return () => {
       isMounted = false;
     };
-  }, [selectedProfile, applyWorkoutData]);
+  }, [activeProfileId, applyWorkoutData]);
 
   useEffect(() => {
-    if (!firebaseInitialized || !user || !selectedProfile) return;
-    const profileId = selectedProfile;
-    const userDocRef = doc(db, 'workout_profiles', profileId, 'app_data', 'workout_data');
+    const services = firebaseServicesRef.current;
+    if (!firebaseReady || !user || !activeProfileId || !services) return undefined;
+    const profileId = activeProfileId;
+    const userDocRef = services.doc(services.db, 'workout_profiles', profileId, 'app_data', 'workout_data');
 
-    const unsubscribeSnapshot = onSnapshot(userDocRef, async (docSnap) => {
+    const unsubscribeSnapshot = services.onSnapshot(userDocRef, async (docSnap) => {
       if (activeProfileRef.current !== profileId) return;
       hasLoadedCloudData.current = true;
       setIsSynced(docSnap.exists());
@@ -231,40 +246,40 @@ const App = () => {
     }, () => setIsSynced(false));
 
     return () => unsubscribeSnapshot();
-  }, [user, selectedProfile, buildProfileSnapshot]);
+  }, [firebaseReady, user, activeProfileId, buildProfileSnapshot]);
 
   useEffect(() => {
-    if (!selectedProfile || !hasLoadedLocalData.current) return;
+    if (!activeProfileId || !hasLoadedLocalData.current) return;
 
-    const profileId = selectedProfile;
+    const profileId = activeProfileId;
     const data = {
       profileId,
       ...buildProfileSnapshot(),
     };
 
     saveProfileData(profileId, data)
-      .then(() => (firebaseInitialized ? saveOutboxMutation(profileId, { type: 'profileData', data }) : null))
+      .then(() => (firebaseReady ? saveOutboxMutation(profileId, { type: 'profileData', data }) : null))
       .then(() => getOutboxCount())
       .then((pending) => setStorageStatus((prev) => ({ ...prev, pending })))
       .then(() => flushOutboxToFirebase())
       .catch((error) => console.warn('Unable to save local workout data.', error));
-  }, [selectedProfile, buildProfileSnapshot, flushOutboxToFirebase]);
+  }, [firebaseReady, activeProfileId, buildProfileSnapshot, flushOutboxToFirebase]);
 
   useEffect(() => {
-    if (!firebaseInitialized || !user) return undefined;
+    if (!firebaseReady || !user) return undefined;
     flushOutboxToFirebase();
     window.addEventListener('online', flushOutboxToFirebase);
     return () => window.removeEventListener('online', flushOutboxToFirebase);
-  }, [user, selectedProfile, flushOutboxToFirebase]);
+  }, [firebaseReady, user, activeProfileId, flushOutboxToFirebase]);
 
   useEffect(() => {
-    if (!selectedProfile) return;
+    if (!activeProfileId) return;
     try {
       localStorage.setItem(GLOBAL_KEYS.jetLag, jetLagMode.toString());
     } catch {
       console.warn('Unable to save local preferences.');
     }
-  }, [jetLagMode, selectedProfile]);
+  }, [jetLagMode, activeProfileId]);
 
   /*
    * Legacy preference migration stays on localStorage because those values are tiny
@@ -479,9 +494,9 @@ const App = () => {
   };
 
   const handleExportJson = async () => {
-    if (!selectedProfile) return;
-    const data = await exportProfile(selectedProfile);
-    downloadTextFile(`hybrid-fit-${selectedProfile}.json`, JSON.stringify(data, null, 2), 'application/json');
+    if (!activeProfileId) return;
+    const data = await exportProfile(activeProfileId);
+    downloadTextFile(`hybrid-fit-${activeProfileId}.json`, JSON.stringify(data, null, 2), 'application/json');
   };
 
   const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -515,7 +530,7 @@ const App = () => {
       ...rows,
     ].map((row) => row.map(escapeCsv).join(',')).join('\n');
 
-    downloadTextFile(`hybrid-fit-${selectedProfile || 'profile'}-log.csv`, csv, 'text/csv');
+    downloadTextFile(`hybrid-fit-${activeProfileId}-log.csv`, csv, 'text/csv');
   };
 
   const handleImportFile = async (event) => {
@@ -538,9 +553,9 @@ const App = () => {
   };
 
   const confirmImportProfile = async () => {
-    if (!selectedProfile || !pendingImportData) return;
+    if (!activeProfileId || !pendingImportData) return;
     try {
-      const imported = await importProfile(selectedProfile, pendingImportData);
+      const imported = await importProfile(activeProfileId, pendingImportData);
       applyWorkoutData(imported);
       setPendingImportData(null);
       setImportError('');
@@ -800,7 +815,7 @@ const App = () => {
           <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#2F6F5E]">{t.statusTitle}</p>
           <div className="mt-0.5 flex min-w-0 items-center gap-1">
             <h1 className="truncate text-lg font-black leading-none text-[#171915]">Hybrid Fit</h1>
-            {firebaseInitialized && (
+            {firebaseReady && (
               <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase ${isSynced ? 'bg-[#EAF1EA] text-[#17352D]' : 'bg-[#FFF0EC] text-[#A6422F]'}`}>
                 {isSynced ? t.syncOnline : t.syncOffline}
               </span>
@@ -1199,7 +1214,7 @@ const App = () => {
         )}
         {pendingImportData && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-[2rem] bg-[#FFFCF4] p-6 shadow-2xl">
+            <div data-testid="import-modal" className="w-full max-w-sm rounded-[2rem] bg-[#FFFCF4] p-6 shadow-2xl">
               <h3 className="text-2xl font-black text-[#171915]">{t.importConfirmTitle}</h3>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-[#626A5E]">{t.importConfirmBody}</p>
               <div className="mt-6 grid grid-cols-2 gap-3">

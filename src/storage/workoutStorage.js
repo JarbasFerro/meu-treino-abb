@@ -1,14 +1,9 @@
 import { openDB } from 'idb';
 
-export const PROFILES = [
-  { id: 'jarbas', label: 'Jarbas' },
-];
+export const ACTIVE_PROFILE_ID = 'jarbas';
 
 export const GLOBAL_KEYS = {
-  selectedProfile: 'hybridFitSelectedProfile',
   jetLag: 'hybridFitJetLagMode',
-  quiet: 'hybridFitQuietMode',
-  lang: 'hybridFitLang',
 };
 
 const LEGACY_PREFIX = ['a', 'b', 'b'].join('');
@@ -19,8 +14,6 @@ export const LEGACY_KEYS = {
   workoutHistory: `${LEGACY_PREFIX}WorkoutHistory`,
   swappedExercises: `${LEGACY_PREFIX}SwappedExercises`,
   jetLag: `${LEGACY_PREFIX}JetLagMode`,
-  quiet: `${LEGACY_PREFIX}QuietMode`,
-  lang: `${LEGACY_PREFIX}Lang`,
 };
 
 const DB_NAME = 'hybridFitDb';
@@ -47,11 +40,6 @@ export const readJsonStorage = (key, fallback) => {
   } catch {
     return fallback;
   }
-};
-
-export const readBoolStorage = (newKey, legacyKey) => {
-  const value = localStorage.getItem(newKey) ?? localStorage.getItem(legacyKey);
-  return value === 'true';
 };
 
 export const getLocalDateString = (date = new Date()) => {
@@ -128,7 +116,7 @@ export const validateProfileBackup = (data) => {
     return { valid: false, reason: 'invalidField', field: 'sessionMetrics' };
   }
 
-  if ('profileId' in data && !PROFILES.some((profile) => profile.id === data.profileId)) {
+  if ('profileId' in data && data.profileId !== ACTIVE_PROFILE_ID) {
     return { valid: false, reason: 'unknownProfile' };
   }
 

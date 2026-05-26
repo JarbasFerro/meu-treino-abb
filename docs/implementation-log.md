@@ -8,6 +8,15 @@ Future agents must read this file before making code changes. Append a dated ent
 - Captured the need to use the full top screen area while respecting the dynamic island protected zone.
 - Added compact bottom navigation and lower-control stacking checks to the execution-flow backlog and visual test backlog.
 
+## 2026-05-26 - Single-user reliability cleanup
+
+- Promoted the single active profile to the shared storage constant `jarbas` and tightened backup validation/import so missing profile IDs and `jarbas` are accepted while other profile IDs are rejected.
+- Pruned runtime i18n data to English-only app copy, removed unused PT/ES workout translation maps, and updated import copy to reference the single device profile.
+- Added `vitest` and `fake-indexeddb` with focused storage tests for backup validation, normalization, import rules, legacy migration, and outbox compaction.
+- Lazy-loaded Firebase Auth/Firestore only when Firebase environment variables are present; the main app shell dropped from about 650.62 kB minified to 261.59 kB minified, with optional Firebase chunks loaded separately.
+- Extended iPhone Playwright checks for import-modal geometry and active-session sticky-action label containment, and added `docs/iphone-pwa-validation.md` for physical Home Screen PWA validation.
+- Verified with `npm run lint`, `npm run build`, `npm run test:unit`, `npm run test:e2e`, and `npm audit --audit-level=moderate`.
+
 ## 2026-05-26 - Simplified single-user header controls
 
 - Removed the header language, sound/quiet-mode, and profile-switch buttons to reclaim iPhone 15 Pro header space.

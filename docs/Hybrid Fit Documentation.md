@@ -93,7 +93,7 @@ The application was built as a single-page **SPA (Single Page Application)** wit
 Data persistence (Set Progress, Consistency History, and *Progressive Overload* Weight Tracking) is managed with a local-first redundancy approach:
 
 1. **Tier 1: IndexedDB (Local Source of Truth):** Workout state lives first in the `hybridFitDb` IndexedDB database. Profile data, active sessions, completed sets, weights, notes, RPE, personal records, and set logs are loaded and saved locally before any cloud backup is attempted. Existing legacy localStorage workout keys are migrated into IndexedDB without deleting the old keys.
-2. **Tier 2: Firebase Firestore (Optional Backup):** When Vite Firebase environment variables are configured, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for backup synchronization. Data is saved under the single Jarbas profile at /workout_profiles/jarbas/app_data/workout_data. Failed backup writes remain in a local IndexedDB outbox and retry while the app is open or comes back online.
+2. **Tier 2: Firebase Firestore (Optional Backup):** When Vite Firebase environment variables are configured, the application lazy-loads Firebase, uses anonymous authentication (signInAnonymously), and uses Firebase *WebSockets* (onSnapshot) for backup synchronization. Data is saved under the single Jarbas profile at /workout_profiles/jarbas/app_data/workout_data. Failed backup writes remain in a local IndexedDB outbox and retry while the app is open or comes back online.
 3. **Preference Storage:** window.localStorage is intentionally limited to the Low Energy / Jet Lag mode preference and legacy compatibility values; workout state remains in IndexedDB.
 
 ### **5.4. Firebase Rules**

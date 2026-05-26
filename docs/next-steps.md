@@ -18,9 +18,8 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - Validate the new iPhone 15 Pro layout on a physical Home Screen PWA install, including dynamic island safe-area behavior, standalone status bar color, compact header controls, rest timer stacking, and bottom home-indicator spacing.
 - Verify the IndexedDB migration on a real iPhone PWA install with existing localStorage data, then document the exact install, refresh, offline, and upgrade behavior.
-- Extend automated browser tests to cover additional PT/ES long-string states.
-- Run and document the IndexedDB migration path on a physical iPhone Home Screen PWA, not only desktop browser automation.
-- Add unit-level tests for backup validation and outbox compaction so those rules are checked without launching the full app.
+- Use `docs/iphone-pwa-validation.md` to run and document the physical iPhone Home Screen PWA install, refresh, offline, upgrade, and migration behavior.
+- Add unit-level coverage for any new storage rules as they are introduced.
 - Keep `npm audit --audit-level=moderate` at zero findings after dependency updates.
 
 ## P1 - Today And Active-Session Execution
@@ -77,8 +76,8 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 ## Engineering Quality
 
 - Split `src/App.jsx` into focused modules: app shell, profile loading, Firebase sync, Today, Plan, Progress, Session, import/export, analytics, and hooks.
-- Code-split Firebase or lazy-load optional backup sync to reduce the production bundle.
+- Add an automated bundle budget so the initial app shell does not regress above the current ~262 kB minified JS asset.
 - Review Workbox runtime caching after media assets exist: shell precache, navigation fallback, stale-while-revalidate static assets, and predictable offline behavior.
 - Add a hard-coded string audit script for app UI copy outside `src/data/i18n.js` and workout data.
-- Extend browser-based visual checks to include Progress import modal geometry and active-session long strings.
+- Extend browser-based visual checks when new views or long labels are added.
 - Add performance budgets for app shell size and first usable Today render.

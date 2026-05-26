@@ -123,6 +123,13 @@ test('exports JSON, rejects invalid imports, imports valid backups, and exports 
 
   await page.locator('#profile-import-file').setInputFiles(jsonPath);
   await expect(page.getByText('Import backup?')).toBeVisible();
+  const importModalBox = await page.getByTestId('import-modal').boundingBox();
+  const viewport = page.viewportSize();
+  expect(importModalBox).toBeTruthy();
+  expect(importModalBox.x).toBeGreaterThanOrEqual(0);
+  expect(importModalBox.y).toBeGreaterThanOrEqual(0);
+  expect(importModalBox.x + importModalBox.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(importModalBox.y + importModalBox.height).toBeLessThanOrEqual(viewport.height + 1);
   await page.getByRole('button', { name: 'Import JSON' }).first().click();
   await expect(page.getByText('Import backup?')).toBeHidden();
 
@@ -232,6 +239,10 @@ test('keeps warm-up, sticky actions, rest timer, and compact nav separated on iP
   expect(compactNavBox).toBeTruthy();
   expectNoVerticalOverlap(restTimerBox, sessionActionsBox);
   expectNoVerticalOverlap(sessionActionsBox, compactNavBox);
+  const actionButtonsFit = await page.getByTestId('sticky-actions').getByRole('button').evaluateAll((buttons) => (
+    buttons.every((button) => button.scrollWidth <= button.clientWidth + 1 && button.scrollHeight <= button.clientHeight + 1)
+  ));
+  expect(actionButtonsFit).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-session-rest.png'), fullPage: false });
 });
 
