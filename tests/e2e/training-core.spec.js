@@ -5,7 +5,7 @@ const profileId = 'jarbas';
 const openApp = async (page) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Hybrid Fit/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible();
 };
 
 const getProfileData = (page, id = profileId) => page.evaluate(async (selectedProfile) => {
@@ -68,7 +68,7 @@ test('migrates legacy localStorage into IndexedDB without deleting legacy data',
 test('starts and resumes an active session with logged set details', async ({ page }) => {
   await openApp(page);
   await expect(page.getByTestId('today-load-hint')).toContainText('No load history yet');
-  await page.getByRole('button', { name: '50 min' }).click();
+  await page.getByRole('button', { name: 'Start Workout' }).click();
   await expect(page.getByText('Quick warm-up')).toBeVisible();
   await page.getByRole('button', { name: 'Warm-up done' }).click();
   await expect(page.getByText('Active session')).toBeVisible();
@@ -92,7 +92,7 @@ test('starts and resumes an active session with logged set details', async ({ pa
   await expect(page.getByPlaceholder('Load').first()).toHaveValue('24');
 
   const data = await getProfileData(page);
-  expect(data.activeSession).toMatchObject({ durationMinutes: 50, warmupDone: true });
+  expect(data.activeSession).toMatchObject({ durationMinutes: 45, warmupDone: true });
   expect(Object.values(data.setLog)).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ weight: '24', rpe: '7', note: 'steady tempo' }),
@@ -111,7 +111,7 @@ test('shows display-only load hints from existing local history', async ({ page 
   await expect(page.getByTestId('today-load-hint')).toContainText('Use last load: 22');
   await expect(page.getByTestId('today-load-hint')).toContainText('Warm-up load');
 
-  await page.getByRole('button', { name: '50 min' }).click();
+  await page.getByRole('button', { name: 'Start Workout' }).click();
   await page.getByRole('button', { name: 'Skip warm-up' }).click();
   await expect(page.getByTestId('session-load-hint')).toContainText('Use last load: 22');
   await expect(page.getByPlaceholder('Load').first()).toHaveValue('22');
@@ -119,7 +119,7 @@ test('shows display-only load hints from existing local history', async ({ page 
 
 test('exports JSON, rejects invalid imports, imports valid backups, and exports CSV logs', async ({ page }, testInfo) => {
   await openApp(page);
-  await page.getByRole('button', { name: '30 min' }).click();
+  await page.getByRole('button', { name: 'Start Workout' }).click();
   await page.getByRole('button', { name: 'Warm-up done' }).click();
   await page.getByPlaceholder('Load').first().fill('18');
   await page.getByPlaceholder(/Adjustments/).fill('backup test');
@@ -159,7 +159,7 @@ test('exports JSON, rejects invalid imports, imports valid backups, and exports 
   const csvPath = await csvDownload.path();
   const csv = await import('node:fs/promises').then((fs) => fs.readFile(csvPath, 'utf8'));
   expect(csv).toContain('"date","mode","duration","lowEnergy","day","exercise","set","weight","rpe","note"');
-  expect(csv).toContain('"30"');
+  expect(csv).toContain('"45"');
   expect(csv).toContain('"false"');
   expect(csv).toContain('"18"');
   expect(csv).toContain('"6"');
@@ -171,36 +171,8 @@ test('keeps the PWA shell available on offline refresh', async ({ page, context 
   await waitForServiceWorker(page);
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible();
   await context.setOffline(false);
-});
-
-test('supports duration scaling, low energy, finish summary, and English-only execution copy', async ({ page }) => {
-  await openApp(page);
-
-  await page.getByRole('button', { name: '15 min' }).click();
-  await page.getByRole('button', { name: 'Skip warm-up' }).click();
-  await expect(page.getByText('Exercise', { exact: true })).toBeVisible();
-  await expect(page.getByText('1/4').first()).toBeVisible();
-  await expect(page.getByText('Set', { exact: true })).toBeVisible();
-  await expect(page.getByText('0/1').first()).toBeVisible();
-  await page.getByRole('button', { name: 'End session' }).click();
-  await expect(page.getByText('Workout logged')).toBeVisible();
-
-  await page.getByRole('button', { name: '30 min' }).click();
-  await page.getByRole('button', { name: 'Warm-up done' }).click();
-  await expect(page.getByText('0/2').first()).toBeVisible();
-  await page.getByRole('button', { name: 'End session' }).click();
-
-  await page.getByRole('button', { name: /Low energy session/ }).click();
-  await expect(page.getByText('Quick warm-up')).toBeVisible();
-  await expect(page.getByText('Calentamiento rápido')).toBeHidden();
-  await expect(page.getByText('Aquecimento rápido')).toBeHidden();
-  await expect(page.getByRole('button', { name: /\[(en|es|pt)\]/i })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Warm-up done' }).click();
-  await expect(page.getByText('0/2').first()).toBeVisible();
-  const data = await getProfileData(page);
-  expect(data.activeSession).toMatchObject({ lowEnergy: true });
 });
 
 test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) => {
@@ -227,8 +199,7 @@ test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) =>
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
 
-  await expect(page.getByRole('button', { name: '15 min' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Low energy session/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible();
   const startActionsBox = await page.getByTestId('today-start-actions').boundingBox();
   expect(startActionsBox).toBeTruthy();
   expect(startActionsBox.y + startActionsBox.height).toBeLessThanOrEqual(page.viewportSize().height * 0.58);
@@ -258,7 +229,7 @@ test('persists Hotel equipment choices and filters room-only swaps on iPhone 15 
   });
 
   await page.reload();
-  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Workout' })).toBeVisible();
   await page.getByRole('button', { name: 'Hotel' }).click();
   await expect(page.getByTestId('hotel-equipment-panel')).toContainText('Bands');
 
@@ -277,7 +248,7 @@ test('persists Hotel equipment choices and filters room-only swaps on iPhone 15 
 
 test('keeps warm-up, sticky actions, rest timer, and compact nav separated on iPhone 15 Pro', async ({ page }, testInfo) => {
   await openApp(page);
-  await page.getByRole('button', { name: '50 min' }).click();
+  await page.getByRole('button', { name: 'Start Workout' }).click();
   await expect(page.getByText('Quick warm-up')).toBeVisible();
 
   const warmupActions = page.getByTestId('sticky-actions');
@@ -352,25 +323,23 @@ test('supports travel-week mode, dynamic warm-up loads, and per-exercise history
   // Toggle ON
   await page.getByRole('button', { name: 'Travel-Week Mode' }).click();
   await expect(page.getByRole('button', { name: 'Travel-Week ON' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '30 min' })).toBeVisible();
   await expect(page.getByTestId('hotel-equipment-panel')).toBeVisible();
   await expect(page.getByTestId('hotel-equipment-panel')).toContainText('Hotel room only');
 
   // Verify in IndexedDB
   await expect.poll(() => getProfileData(page)).toMatchObject({
     travelWeekMode: true,
-    sessionDuration: 30,
+    sessionDuration: 45,
     hotelEquipment: { roomOnly: true },
   });
 
   // Toggle OFF
   await page.getByRole('button', { name: 'Travel-Week ON' }).click();
   await expect(page.getByRole('button', { name: 'Travel-Week Mode' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
 
   await expect.poll(() => getProfileData(page)).toMatchObject({
     travelWeekMode: false,
-    sessionDuration: 50,
+    sessionDuration: 45,
   });
 
   // 2. Test Dynamic Warm-Up load calculations
@@ -417,7 +386,7 @@ test('supports travel-week mode, dynamic warm-up loads, and per-exercise history
 
   // 5. Test writing a new session log and completing it, to populate exercise history
   await page.getByRole('button', { name: 'Today' }).click();
-  await page.getByRole('button', { name: '50 min' }).click();
+  await page.getByRole('button', { name: 'Start Workout' }).click();
   await page.getByRole('button', { name: 'Warm-up done' }).click();
 
   // Update Weight, RPE, note
@@ -446,14 +415,6 @@ test('supports travel-week mode, dynamic warm-up loads, and per-exercise history
   await page.getByRole('button', { name: 'Back to today' }).click();
   await expect(page.getByTestId('finish-exercise-summary')).toBeHidden();
 
-  // Now, verify consistency trends show up on the Progress view
-  await page.getByRole('button', { name: 'Progress' }).click();
-  await expect(page.getByTestId('consistency-trends-panel')).toBeVisible();
-  await expect(page.getByTestId('consistency-trends-panel')).toContainText('50 min');
-  await expect(page.getByTestId('consistency-trends-panel')).toContainText('100% (1)');
-  await expect(page.getByTestId('consistency-trends-panel')).toContainText('Normal Intensity');
-  await expect(page.getByTestId('consistency-trends-panel')).toContainText('100% (1)');
-
   // Verify that it populated exerciseHistory in IndexedDB
   await expect.poll(() => getProfileData(page)).toMatchObject({
     exerciseHistory: {
@@ -470,6 +431,7 @@ test('supports travel-week mode, dynamic warm-up loads, and per-exercise history
   });
 
   // Open history drawer from Progress view and verify the completed log shows up
+  await page.getByRole('button', { name: 'Progress' }).click();
   await page.getByRole('button', { name: 'DB Bench Press' }).click();
   await expect(page.getByTestId('history-drawer')).toBeVisible();
   await expect(page.getByTestId('history-drawer')).toContainText('110 lbs');

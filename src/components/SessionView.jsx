@@ -10,7 +10,6 @@ export const SessionView = ({ state }) => {
     workoutData,
     currentDayIndex,
     mode,
-    jetLagMode,
     swappedExercises,
     getCompletedCount,
     getExerciseGuidance,
@@ -32,14 +31,13 @@ export const SessionView = ({ state }) => {
 
   const dayData = workoutData[activeSession.dayIndex] || workoutData[currentDayIndex];
   const sessionMode = activeSession.mode || mode;
-  const durationMinutes = activeSession.durationMinutes || 50;
-  const lowEnergy = activeSession.lowEnergy ?? jetLagMode;
-  const exercises = getSessionExercises(dayData[sessionMode] || [], durationMinutes);
+  const durationMinutes = activeSession.durationMinutes || 45;
+  const exercises = getSessionExercises(dayData[sessionMode] || []);
   const exerciseIndex = Math.min(activeSession.exerciseIndex, Math.max(0, exercises.length - 1));
   const baseExercise = exercises[exerciseIndex];
   const activeSwapIndex = getSwapValue(swappedExercises[`${activeSession.dayIndex}-${sessionMode}-${exerciseIndex}`]);
   const exercise = activeSwapIndex !== null && baseExercise?.altOptions?.[activeSwapIndex] ? baseExercise.altOptions[activeSwapIndex] : baseExercise;
-  const totalSets = getSessionSetCount(baseExercise, lowEnergy, durationMinutes);
+  const totalSets = getSessionSetCount(baseExercise);
   const completedCount = getCompletedCount(activeSession.dayIndex, sessionMode, exerciseIndex, totalSets);
   const guidance = getExerciseGuidance(exercise, baseExercise);
   const nextExercise = exercises[exerciseIndex + 1];

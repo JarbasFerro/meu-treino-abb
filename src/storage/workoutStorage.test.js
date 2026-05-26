@@ -64,7 +64,7 @@ describe('profile normalization and import', () => {
 
     expect(normalized).toMatchObject({
       profileId: ACTIVE_PROFILE_ID,
-      sessionDuration: 50,
+      sessionDuration: 45,
       sessionMetrics: [],
       activeSession: null,
       exerciseNotes: {},

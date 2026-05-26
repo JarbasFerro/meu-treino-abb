@@ -23,8 +23,6 @@ import {
 } from '../storage/workoutStorage.js';
 
 export const APP_LANGUAGE = 'en';
-
-export const DURATION_OPTIONS = [15, 30, 50];
 export const EQUIPMENT_ORDER = ['dumbbells', 'bench', 'cableStation', 'bands', 'pullUpBar', 'floorSpace', 'roomOnly'];
 
 const firebaseConfig = {
@@ -43,21 +41,16 @@ const firebaseConfigured = Boolean(
   && firebaseConfig.appId,
 );
 
-export const getSetCount = (exercise, lowEnergy) => {
-  const originalSets = parseInt(exercise?.sets, 10) || 1;
-  return lowEnergy ? Math.min(2, originalSets) : originalSets;
+export const getSetCount = (exercise) => {
+  return parseInt(exercise?.sets, 10) || 1;
 };
 
-export const getSessionExercises = (exercises = [], durationMinutes = 50) => {
-  if (durationMinutes !== 15) return exercises;
-  return exercises.filter((exercise) => exercise.category !== 'mobility').slice(0, 4);
+export const getSessionExercises = (exercises = []) => {
+  return exercises;
 };
 
-export const getSessionSetCount = (exercise, lowEnergy, durationMinutes = 50) => {
-  const baseSets = getSetCount(exercise, lowEnergy);
-  if (durationMinutes === 15) return Math.min(1, baseSets);
-  if (durationMinutes === 30) return Math.min(2, baseSets);
-  return baseSets;
+export const getSessionSetCount = (exercise) => {
+  return getSetCount(exercise);
 };
 
 export const getSwapValue = (value) => {
@@ -90,19 +83,8 @@ export const useWorkoutState = () => {
   const activeProfileId = ACTIVE_PROFILE_ID;
   const [activeView, setActiveView] = useState('today');
   const [mode, setMode] = useState('home');
-  const [jetLagMode, setJetLagMode] = useState(() => {
-    try {
-      const legacyJetLag = localStorage.getItem(LEGACY_KEYS.jetLag);
-      if (!localStorage.getItem(GLOBAL_KEYS.jetLag) && legacyJetLag !== null) {
-        localStorage.setItem(GLOBAL_KEYS.jetLag, legacyJetLag);
-      }
-      const value = localStorage.getItem(GLOBAL_KEYS.jetLag) ?? localStorage.getItem(LEGACY_KEYS.jetLag);
-      return value === 'true';
-    } catch {
-      console.warn('Unable to load local preferences.');
-      return false;
-    }
-  });
+  const jetLagMode = false;
+  const sessionDuration = 45;
   const [completedSets, setCompletedSets] = useState({});
   const [expandedInfo, setExpandedInfo] = useState(null);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -119,7 +101,6 @@ export const useWorkoutState = () => {
   const [personalRecords, setPersonalRecords] = useState({});
   const [setLog, setSetLog] = useState({});
   const [sessionMetrics, setSessionMetrics] = useState([]);
-  const [sessionDuration, setSessionDuration] = useState(50);
   const [hotelEquipment, setHotelEquipment] = useState(DEFAULT_HOTEL_EQUIPMENT);
   const [finishSummary, setFinishSummary] = useState(null);
   const [storageStatus, setStorageStatus] = useState({ persisted: false, pending: 0, estimate: null });
@@ -153,7 +134,6 @@ export const useWorkoutState = () => {
     setPersonalRecords(data.personalRecords || {});
     setSetLog(data.setLog || {});
     setSessionMetrics(Array.isArray(data.sessionMetrics) ? data.sessionMetrics : []);
-    setSessionDuration(DURATION_OPTIONS.includes(data.sessionDuration) ? data.sessionDuration : 50);
     setHotelEquipment(data.hotelEquipment || DEFAULT_HOTEL_EQUIPMENT);
     setExerciseHistory(data.exerciseHistory || {});
     setTravelWeekMode(data.travelWeekMode || false);
@@ -171,11 +151,11 @@ export const useWorkoutState = () => {
     personalRecords,
     setLog,
     sessionMetrics,
-    sessionDuration,
+    sessionDuration: 45,
     hotelEquipment,
     exerciseHistory,
     travelWeekMode,
-  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog, sessionMetrics, sessionDuration, hotelEquipment, exerciseHistory, travelWeekMode]);
+  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog, sessionMetrics, hotelEquipment, exerciseHistory, travelWeekMode]);
 
   const flushOutboxToFirebase = useCallback(() => {
     const services = firebaseServicesRef.current;
@@ -320,14 +300,7 @@ export const useWorkoutState = () => {
     return () => window.removeEventListener('online', flushOutboxToFirebase);
   }, [firebaseReady, user, activeProfileId, flushOutboxToFirebase]);
 
-  useEffect(() => {
-    if (!activeProfileId) return;
-    try {
-      localStorage.setItem(GLOBAL_KEYS.jetLag, jetLagMode.toString());
-    } catch {
-      console.warn('Unable to save local preferences.');
-    }
-  }, [jetLagMode, activeProfileId]);
+
 
 
 
@@ -444,7 +417,7 @@ export const useWorkoutState = () => {
           dayIndex,
           mode: sessionMode,
           durationMinutes: activeSession?.durationMinutes || sessionDuration,
-          lowEnergy: activeSession?.lowEnergy ?? jetLagMode,
+          lowEnergy: false,
           exerciseIndex: exIndex,
           exerciseName: exercise?.name || '',
           setIndex,
@@ -458,10 +431,7 @@ export const useWorkoutState = () => {
     if (!isCheckedBefore) {
       setPersonalRecords((prev) => {
         const current = prev[exerciseKey] || {};
-        const activeDuration = activeSession?.dayIndex === dayIndex && activeSession?.mode === sessionMode
-          ? activeSession.durationMinutes
-          : sessionDuration;
-        const completedForExercise = getCompletedCount(dayIndex, sessionMode, exIndex, getSessionSetCount(exercise, jetLagMode, activeDuration)) + 1;
+        const completedForExercise = getCompletedCount(dayIndex, sessionMode, exIndex, getSessionSetCount(exercise)) + 1;
         const numericLoad = Number.parseFloat(weights[exerciseKey]);
         return {
           ...prev,
@@ -708,26 +678,26 @@ export const useWorkoutState = () => {
     };
   }, [t]);
 
-  const getDayProgress = useCallback((dayIndex, sessionMode = mode, lowEnergy = jetLagMode, durationMinutes = sessionDuration) => {
-    const data = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || [], durationMinutes);
+  const getDayProgress = useCallback((dayIndex, sessionMode = mode) => {
+    const data = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || []);
     let totalSets = 0;
     let completed = 0;
     data.forEach((ex, i) => {
-      const numSets = getSessionSetCount(ex, lowEnergy, durationMinutes);
+      const numSets = getSessionSetCount(ex);
       totalSets += numSets;
       completed += getCompletedCount(dayIndex, sessionMode, i, numSets);
     });
     return totalSets === 0 ? 0 : Math.round((completed / totalSets) * 100);
-  }, [workoutData, mode, jetLagMode, sessionDuration, getCompletedCount]);
+  }, [workoutData, mode, getCompletedCount]);
 
-  const getWorkoutSummary = useCallback((dayIndex, sessionMode = mode, lowEnergy = jetLagMode, durationMinutes = sessionDuration) => {
-    const exercises = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || [], durationMinutes);
+  const getWorkoutSummary = useCallback((dayIndex, sessionMode = mode) => {
+    const exercises = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || []);
     let totalSets = 0;
     let completed = 0;
     let nextExercise = null;
 
     exercises.forEach((ex, i) => {
-      const numSets = getSessionSetCount(ex, lowEnergy, durationMinutes);
+      const numSets = getSessionSetCount(ex);
       const done = getCompletedCount(dayIndex, sessionMode, i, numSets);
       totalSets += numSets;
       completed += done;
@@ -735,7 +705,7 @@ export const useWorkoutState = () => {
     });
 
     return { totalSets, completed, nextExercise, exercises };
-  }, [workoutData, mode, jetLagMode, sessionDuration, getCompletedCount]);
+  }, [workoutData, mode, getCompletedCount]);
 
   const calculateStreak = useCallback(() => {
     let streak = 0;
@@ -762,9 +732,9 @@ export const useWorkoutState = () => {
   }, [workoutHistory]);
 
   const getExpectedWeeklyUnits = useCallback(() => workoutData.reduce((sum, dayData) => {
-    const dayExercises = getSessionExercises(dayData[mode] || dayData.home || [], sessionDuration);
-    return sum + dayExercises.reduce((daySum, ex) => daySum + getSessionSetCount(ex, jetLagMode, sessionDuration), 0);
-  }, 0), [workoutData, mode, jetLagMode, sessionDuration]);
+    const dayExercises = getSessionExercises(dayData[mode] || dayData.home || []);
+    return sum + dayExercises.reduce((daySum, ex) => daySum + getSessionSetCount(ex), 0);
+  }, 0), [workoutData, mode]);
 
   const calculateCompletionRate = useCallback(() => {
     let totalCompleted = 0;
@@ -793,11 +763,11 @@ export const useWorkoutState = () => {
     return vol;
   }, [completedSets, workoutData]);
 
-  const getSessionPlan = useCallback((dayIndex, sessionMode, lowEnergy, durationMinutes) => {
-    const exercises = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || [], durationMinutes);
-    const plannedSets = exercises.reduce((sum, exercise) => sum + getSessionSetCount(exercise, lowEnergy, durationMinutes), 0);
+  const getSessionPlan = useCallback((dayIndex, sessionMode) => {
+    const exercises = getSessionExercises(workoutData[dayIndex]?.[sessionMode] || []);
+    const plannedSets = exercises.reduce((sum, exercise) => sum + getSessionSetCount(exercise), 0);
     const completed = exercises.reduce((sum, exercise, index) => {
-      const sets = getSessionSetCount(exercise, lowEnergy, durationMinutes);
+      const sets = getSessionSetCount(exercise);
       return sum + getCompletedCount(dayIndex, sessionMode, index, sets);
     }, 0);
     return { exercises, plannedSets, completed };
@@ -805,9 +775,7 @@ export const useWorkoutState = () => {
 
   const getSessionSummary = useCallback((session) => {
     const sessionMode = session.mode || mode;
-    const durationMinutes = session.durationMinutes || 50;
-    const lowEnergy = session.lowEnergy ?? jetLagMode;
-    const plan = getSessionPlan(session.dayIndex, sessionMode, lowEnergy, durationMinutes);
+    const plan = getSessionPlan(session.dayIndex, sessionMode);
     const baseline = session.baselineRecords || {};
     let bestLoad = 0;
     let prCount = 0;
@@ -829,7 +797,7 @@ export const useWorkoutState = () => {
       const activeSwapIndex = getSwapValue(swappedExercises[key]);
       const exercise = activeSwapIndex !== null && baseExercise?.altOptions?.[activeSwapIndex] ? baseExercise.altOptions[activeSwapIndex] : baseExercise;
       if (exercise) {
-        const sets = getSessionSetCount(baseExercise, lowEnergy, durationMinutes);
+        const sets = getSessionSetCount(baseExercise);
         const completed = getCompletedCount(session.dayIndex, sessionMode, index, sets);
         if (completed > 0) {
           exerciseSummaryList.push({
@@ -851,8 +819,8 @@ export const useWorkoutState = () => {
     return {
       date: getLocalDateString(),
       mode: sessionMode,
-      durationMinutes,
-      lowEnergy,
+      durationMinutes: 45,
+      lowEnergy: false,
       startedAt: session.startedAt,
       finishedAt: new Date().toISOString(),
       timeToStartSeconds: session.timeToStartSeconds || 0,
@@ -863,11 +831,9 @@ export const useWorkoutState = () => {
       avgRpe,
       exerciseSummaryList,
     };
-  }, [mode, jetLagMode, getSessionPlan, weights, rpeLog, swappedExercises, exerciseNotes, getCompletedCount]);
+  }, [mode, getSessionPlan, weights, rpeLog, swappedExercises, exerciseNotes, getCompletedCount]);
 
-  const startSession = (durationMinutes = sessionDuration, lowEnergy = false) => {
-    setSessionDuration(durationMinutes);
-    setJetLagMode(lowEnergy);
+  const startSession = () => {
     const now = new Date();
     setFinishSummary(null);
     setActiveSession({
@@ -875,9 +841,9 @@ export const useWorkoutState = () => {
       mode,
       exerciseIndex: 0,
       currentSetIndex: 0,
-      durationMinutes,
+      durationMinutes: 45,
       warmupDone: false,
-      lowEnergy,
+      lowEnergy: false,
       baselineRecords: personalRecords,
       startedAt: now.toISOString(),
       timeToStartSeconds: Math.max(0, Math.round((now.getTime() - new Date(openedAtRef.current).getTime()) / 1000)),
@@ -894,9 +860,9 @@ export const useWorkoutState = () => {
       mode,
       exerciseIndex: 0,
       currentSetIndex: 0,
-      durationMinutes: sessionDuration,
+      durationMinutes: 45,
       warmupDone: false,
-      lowEnergy: jetLagMode,
+      lowEnergy: false,
       baselineRecords: personalRecords,
       startedAt: now.toISOString(),
       timeToStartSeconds: Math.max(0, Math.round((now.getTime() - new Date(openedAtRef.current).getTime()) / 1000)),
@@ -953,14 +919,12 @@ export const useWorkoutState = () => {
     setTravelWeekMode(active);
     if (active) {
       setMode('hotel');
-      setSessionDuration(30);
       setHotelEquipment((prev) => ({
         ...prev,
         roomOnly: true,
       }));
     } else {
       setMode('home');
-      setSessionDuration(50);
       setHotelEquipment(DEFAULT_HOTEL_EQUIPMENT);
     }
   };
@@ -969,10 +933,8 @@ export const useWorkoutState = () => {
     if (activeSession) {
       const summary = getSessionSummary(activeSession);
       const sessionMode = activeSession.mode || mode;
-      const durationMinutes = activeSession.durationMinutes || 50;
-      const lowEnergy = activeSession.lowEnergy ?? jetLagMode;
       const dayData = workoutData[activeSession.dayIndex];
-      const exercises = getSessionExercises(dayData[sessionMode] || [], durationMinutes);
+      const exercises = getSessionExercises(dayData[sessionMode] || []);
 
       setExerciseHistory((prev) => {
         const next = { ...prev };
@@ -981,7 +943,7 @@ export const useWorkoutState = () => {
           const exercise = activeSwapIndex !== null && baseExercise?.altOptions?.[activeSwapIndex] ? baseExercise.altOptions[activeSwapIndex] : baseExercise;
           if (!exercise) return;
 
-          const totalSets = getSessionSetCount(baseExercise, lowEnergy, durationMinutes);
+          const totalSets = getSessionSetCount(baseExercise);
           const completed = getCompletedCount(activeSession.dayIndex, sessionMode, index, totalSets);
           if (completed === 0) return;
 
@@ -1035,7 +997,6 @@ export const useWorkoutState = () => {
     mode,
     setMode,
     jetLagMode,
-    setJetLagMode,
     completedSets,
     setCompletedSets,
     expandedInfo,
@@ -1064,7 +1025,6 @@ export const useWorkoutState = () => {
     sessionMetrics,
     setSessionMetrics,
     sessionDuration,
-    setSessionDuration,
     hotelEquipment,
     setHotelEquipment,
     finishSummary,

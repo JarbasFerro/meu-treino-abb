@@ -1,7 +1,7 @@
 import { ModeSwitch } from './TrainingControls.jsx';
 import { Metric } from './Metric.jsx';
 import { ExerciseList } from './ExerciseList.jsx';
-import { DURATION_OPTIONS, EQUIPMENT_ORDER } from '../hooks/useWorkoutState.js';
+import { EQUIPMENT_ORDER } from '../hooks/useWorkoutState.js';
 
 export const TodayView = ({ state }) => {
   const {
@@ -31,7 +31,7 @@ export const TodayView = ({ state }) => {
 
   const todaySummary = getWorkoutSummary(currentDayIndex, mode, jetLagMode, sessionDuration);
   const next = todaySummary.nextExercise;
-  const todayDuration = `${sessionDuration} min`;
+  const todayDuration = "45 min";
   const todayEquipment = mode === 'home' ? t.homeEquipment : formatEquipmentSummary();
   const firstCue = todaySummary.exercises[0]
     ? state.getExerciseGuidance(todaySummary.exercises[0], todaySummary.exercises[0]).cues[0]
@@ -70,31 +70,25 @@ export const TodayView = ({ state }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2" data-testid="today-start-actions">
-          {activeSession && (
+        <div className="flex flex-col gap-2" data-testid="today-start-actions">
+          {activeSession ? (
             <button
               onClick={() => setActiveView('session')}
-              className="col-span-2 min-h-12 rounded-2xl border border-[#D8CFBE] bg-white px-4 text-sm font-black text-[#17352D]"
+              className="min-h-14 w-full rounded-2xl bg-[#17352D] text-white px-4 text-sm font-black shadow-md hover:bg-[#1f483d] transition active:scale-[0.98]"
             >
               {t.resumeSession}
             </button>
-          )}
-          {DURATION_OPTIONS.map((duration) => (
+          ) : (
             <button
-              key={duration}
-              onClick={() => startSession(duration, false)}
-              className={`min-h-12 rounded-2xl px-4 text-sm font-black ${sessionDuration === duration ? 'bg-[#17352D] text-white' : 'border border-[#D8CFBE] bg-white text-[#17352D]'}`}
+              onClick={() => startSession()}
+              className="min-h-14 w-full rounded-2xl bg-[#17352D] text-white px-4 text-sm font-black shadow-md hover:bg-[#1f483d] transition active:scale-[0.98]"
             >
-              {t[`duration${duration}`]}
+              Start Workout
+              <span className="block text-[10px] font-bold opacity-80">
+                40 min exercise + 5 min stretching
+              </span>
             </button>
-          ))}
-          <button
-            onClick={() => startSession(sessionDuration, true)}
-            className="min-h-12 rounded-2xl border border-[#C9B68F] bg-[#FFF8E8] px-4 text-sm font-black text-[#654C12]"
-          >
-            {t.lowEnergySession}
-            <span className="block text-[10px] font-bold">{t.habitFallback}</span>
-          </button>
+          )}
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -204,7 +198,7 @@ export const TodayView = ({ state }) => {
           </h3>
           <p className="mt-2 text-sm font-semibold text-[#626A5E]">{t.finishSummaryBody}</p>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Metric label={t.sessionType} value={finishSummary.lowEnergy ? t.lowEnergy : finishSummary.mode === 'home' ? t.homeMode : t.hotelMode} />
+            <Metric label={t.sessionType} value={finishSummary.mode === 'home' ? t.homeMode : t.hotelMode} />
             <Metric label={t.durationLabel} value={`${finishSummary.durationMinutes} min`} />
             <Metric label={t.timeToStart} value={`${finishSummary.timeToStartSeconds}s`} />
             <Metric label={t.prCount} value={finishSummary.prCount} />
@@ -261,7 +255,6 @@ export const TodayView = ({ state }) => {
       <section className="rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4] p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-black text-[#171915]">{t.todayPlan}</h3>
-          {jetLagMode && <span className="rounded-full bg-[#FFF8E8] px-3 py-2 text-xs font-black text-[#654C12]">{t.lowEnergyOn}</span>}
         </div>
         <ExerciseList dayIndex={currentDayIndex} sessionMode={mode} compact {...state} />
       </section>

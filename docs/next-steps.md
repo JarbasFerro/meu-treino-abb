@@ -6,10 +6,9 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## Preserve As Product Principles
 
-- Keep the app Today-first. The first screen should answer: what do I do today, how long will it take, what equipment do I need, what should I lift or modify, and what counts if energy is low.
+- Keep the app Today-first. The first screen should answer: what do I do today, how long will it take (static 45 min), what equipment do I need, and what should I lift or modify.
 - Keep IndexedDB as the source of truth for workout state, with Firebase as optional backup only. The app must stay useful offline and must never require cloud sync to start or complete training.
-- Keep localStorage limited to tiny preferences and legacy compatibility; the active app should use English, sound-on alerts, one fixed profile, and Low Energy / Jet Lag as the only current preference.
-- Keep Low Energy / Jet Lag as a valid habit-preserving session, not a failure state.
+- Keep localStorage limited to tiny preferences and legacy compatibility; the active app should use English, sound-on alerts, and one fixed profile.
 - Keep Home and Hotel modes first-class. Travel is part of the product, not an edge case.
 - Keep beginner guidance, safety language, and progressive overload visible in the execution flow instead of hiding them in a content library.
 - Avoid calorie-first framing, public comparison, shame-based streaks, rigid readiness dashboards, cloud-required saving, and random workout novelty that breaks progressive overload.
@@ -24,7 +23,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P1 - Today And Active-Session Execution
 
-- Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
+- [DONE] Refine duration programming: simplified the cockpit by removing 15/30/50 min options and keeping a single 45-minute standard session.
 - Improve session finish summaries with clearer best lift/core note selection (now that `exerciseHistory` exists, pull exercise-specific highlights directly into the finish card).
 - Continue one-handed active-session polish after physical iPhone testing, especially whether the compact three-column primary action row remains readable during real use.
 - Refine Today density after physical iPhone use: validate whether the new start-first card and the travel-week card still leave enough context above the fold.
@@ -34,9 +33,9 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - Refine the Hotel equipment checklist after physical travel use, especially whether "room only" should hide more original planned exercises or simply bias swap choices.
 - Refine equipment-aware swaps after real use: improve exercise-specific alternatives and decide whether unavailable original exercises need stronger warnings.
-- [DONE] Add travel-week templates: implemented via a unified "Travel-Week Mode" toggle that switches to Hotel mode, sets duration to 30 min, and restricts equipment to "Room-Only".
+- [DONE] Add travel-week templates: implemented via a unified "Travel-Week Mode" toggle that switches to Hotel mode, restricts equipment to "Room-Only", and maintains the standard 45-min duration.
 - [DONE] Add richer mode-specific equipment notes in Today, including warnings for hotel movements that depend on furniture stability.
-- [DONE] Track environment mix locally: Home, Hotel, and Low Energy frequencies are stored in `sessionMetrics` and shown in `ProgressView`.
+- [DONE] Track environment mix locally: Home and Hotel frequencies are stored in `sessionMetrics` and shown in `ProgressView` (Low Energy retired).
 
 ## P1 - Beginner Guidance, Safety, And Progression
 
@@ -61,7 +60,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - [DONE] Build richer progression views: implemented a "Benchmarks & Lifts" section in ProgressView presenting anchor lifts.
 - [DONE] Add per-exercise history sheets: implemented `HistoryDrawer` using `<dialog>` with slide transitions showing recent sets, loads, notes, and PRs.
-- [/] Add simple trend charts: implemented duration breakdown and Low Energy fallback frequency mix using `sessionMetrics`; training-day completion over time and swap averages remain for future iterations.
+- [DONE] Add simple trend charts: implemented Environment Frequency Mix (Home vs Hotel) using `sessionMetrics`; duration breakdown and Low Energy fallback frequency mix have been retired since those configurations are now standardized. Training-day completion over time and swap averages remain for future iterations.
 - Add local-only friction analytics: time-to-start, abandon-before-start, session interruptions, completed duration version, and offline write success.
 - Add a core-strength milestone view that makes planks, carries, anti-rotation work, and bracing progress easy to understand.
 - Preserve CSV export and extend it when new metrics (like `exerciseHistory` entries) are added.

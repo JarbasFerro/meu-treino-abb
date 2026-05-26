@@ -2,6 +2,17 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Single Start Workout Cockpit Simplification
+
+- Replaced multiple session duration buttons (`15 min`, `30 min`, `50 min`) and the `Low Energy` session option with a single unified "Start Workout" / "Resume Session" button.
+- Configured a static standard 45-minute training duration (40 minutes of exercise + 5 minutes of stretching) as the single default.
+- Simplified `useWorkoutState.js` hook by removing `DURATION_OPTIONS`, `jetLagMode` state, and streamlining session start/end methods, session summaries, progress calculations, and volume estimations.
+- Retired the "Consistency Trends" section cards and aggregations from `ProgressView.jsx` as the duration and energy intensity are now standardized, keeping "Environment Frequency Mix" and "Benchmarks & Lifts".
+- Cleared out retired translations from `src/data/i18n.js`.
+- Cleaned up reference/state exports in `useWorkoutState.js` (removed undefined `setJetLagMode` and `setSessionDuration`).
+- Rewrote mobile Playwright E2E integration tests in `tests/e2e/training-core.spec.js` to align with the simplified Start Workout flow, verifying 10/10 tests pass.
+- Verified build and check bundle budget: main app shell stands at 270.61 kB (under the 275.00 kB budget). Verified all unit tests pass (7/7 tests green).
+
 ## 2026-05-26 - Travel cautions, completed summaries, and consistency trends
 
 - Added `safetyCaution` warnings directly on hotel exercises using furniture or door anchors (Bulgarian Split Squats, Towel Door Rows, Bed Frame Rows, Bodyweight Step-Ups).
