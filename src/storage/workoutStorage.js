@@ -6,6 +6,18 @@ export const GLOBAL_KEYS = {
   jetLag: 'hybridFitJetLagMode',
 };
 
+export const HOTEL_EQUIPMENT_IDS = ['dumbbells', 'bench', 'cableStation', 'bands', 'pullUpBar', 'floorSpace', 'roomOnly'];
+
+export const DEFAULT_HOTEL_EQUIPMENT = {
+  dumbbells: false,
+  bench: false,
+  cableStation: false,
+  bands: false,
+  pullUpBar: false,
+  floorSpace: true,
+  roomOnly: true,
+};
+
 const LEGACY_PREFIX = ['a', 'b', 'b'].join('');
 
 export const LEGACY_KEYS = {
@@ -62,9 +74,18 @@ const emptyProfileData = (profileId) => ({
   setLog: {},
   sessionMetrics: [],
   sessionDuration: 50,
+  hotelEquipment: DEFAULT_HOTEL_EQUIPMENT,
   storageVersion: STORAGE_VERSION,
   updatedAt: new Date().toISOString(),
 });
+
+export const normalizeHotelEquipment = (value = {}) => {
+  const source = isPlainObject(value) ? value : {};
+  return HOTEL_EQUIPMENT_IDS.reduce((next, id) => ({
+    ...next,
+    [id]: typeof source[id] === 'boolean' ? source[id] : DEFAULT_HOTEL_EQUIPMENT[id],
+  }), {});
+};
 
 export const normalizeProfileData = (profileId, data = {}) => ({
   ...emptyProfileData(profileId),
@@ -81,6 +102,7 @@ export const normalizeProfileData = (profileId, data = {}) => ({
   setLog: data.setLog || {},
   sessionMetrics: Array.isArray(data.sessionMetrics) ? data.sessionMetrics : [],
   sessionDuration: [15, 30, 50].includes(data.sessionDuration) ? data.sessionDuration : 50,
+  hotelEquipment: normalizeHotelEquipment(data.hotelEquipment),
   storageVersion: STORAGE_VERSION,
   updatedAt: data.updatedAt || new Date().toISOString(),
 });
@@ -114,6 +136,17 @@ export const validateProfileBackup = (data) => {
 
   if ('sessionMetrics' in data && !Array.isArray(data.sessionMetrics)) {
     return { valid: false, reason: 'invalidField', field: 'sessionMetrics' };
+  }
+
+  if ('hotelEquipment' in data) {
+    if (!isPlainObject(data.hotelEquipment)) {
+      return { valid: false, reason: 'invalidField', field: 'hotelEquipment' };
+    }
+    const invalidEquipment = Object.entries(data.hotelEquipment)
+      .find(([key, value]) => !HOTEL_EQUIPMENT_IDS.includes(key) || typeof value !== 'boolean');
+    if (invalidEquipment) {
+      return { valid: false, reason: 'invalidField', field: 'hotelEquipment' };
+    }
   }
 
   if ('profileId' in data && data.profileId !== ACTIVE_PROFILE_ID) {

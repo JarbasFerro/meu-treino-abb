@@ -235,6 +235,46 @@ test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) =>
   await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-today.png'), fullPage: false });
 });
 
+test('persists Hotel equipment choices and filters room-only swaps on iPhone 15 Pro', async ({ page }, testInfo) => {
+  await openApp(page);
+  await expect(page.getByTestId('hotel-equipment-panel')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Hotel' }).click();
+  await expect(page.getByTestId('hotel-equipment-panel')).toBeVisible();
+  await expect(page.getByTestId('hotel-equipment-panel')).toContainText('Room only');
+  await expect(page.getByText('No bench, machines, pull-up bar, or heavy load assumed.')).toBeVisible();
+
+  await page.getByRole('button', { name: '[INFO]' }).first().click();
+  const swapOptions = page.getByTestId('swap-options').first();
+  await expect(swapOptions).toBeVisible();
+  await expect(swapOptions).toContainText('No equipment');
+  await expect(swapOptions).toContainText('Original plan');
+  await expect(swapOptions).not.toContainText('Band');
+
+  await page.getByRole('button', { name: /Bands/ }).click();
+  await expect(page.getByTestId('hotel-equipment-panel')).toContainText('Bands');
+  await expect.poll(() => getProfileData(page)).toMatchObject({
+    hotelEquipment: { bands: true, roomOnly: false, floorSpace: true },
+  });
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hotel' }).click();
+  await expect(page.getByTestId('hotel-equipment-panel')).toContainText('Bands');
+
+  const panelBox = await page.getByTestId('hotel-equipment-panel').boundingBox();
+  const navBox = await page.getByTestId('bottom-nav').boundingBox();
+  expect(panelBox).toBeTruthy();
+  expect(navBox).toBeTruthy();
+  expect(panelBox.x).toBeGreaterThanOrEqual(0);
+  expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(page.viewportSize().width + 1);
+  await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-hotel-equipment.png'), fullPage: false });
+
+  await expect.poll(() => getProfileData(page)).toMatchObject({
+    hotelEquipment: { bands: true, roomOnly: false, floorSpace: true },
+  });
+});
+
 test('keeps warm-up, sticky actions, rest timer, and compact nav separated on iPhone 15 Pro', async ({ page }, testInfo) => {
   await openApp(page);
   await page.getByRole('button', { name: '50 min' }).click();

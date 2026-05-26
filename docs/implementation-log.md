@@ -2,6 +2,15 @@
 
 Future agents must read this file before making code changes. Append a dated entry after every implementation pass.
 
+## 2026-05-26 - Hotel equipment and swap quality
+
+- Added `hotelEquipment` profile data with default room-only/floor-space setup, backup normalization, validation, and unit coverage for older backups and malformed equipment shapes.
+- Added compact Hotel-mode equipment controls on Today and a Plan header equipment summary, with IndexedDB persistence and no localStorage expansion.
+- Added exercise equipment metadata and generated travel alternatives so Hotel swaps can be grouped by Your Equipment, No Equipment, Same Equipment, and Different Equipment while preserving existing `swappedExercises` keys and legacy boolean compatibility.
+- Added room-only filtering so visible Hotel alternatives bias toward floor-safe/no-equipment choices when no hotel equipment should be assumed.
+- Extended iPhone Playwright coverage for Hotel checklist visibility, persistence after refresh, room-only swap filtering, and checklist geometry.
+- Verified with `npm run lint`, `npm run build`, `npm run check:bundle`, `npm run test:unit`, `npm run test:e2e`, and `npm audit --audit-level=moderate`; main app shell measured 265.78 kB under the 275 kB budget.
+
 ## 2026-05-26 - Start-first Today and bundle guardrail
 
 - Moved Today start actions above secondary metrics and the Next Up card so `15 min`, `30 min`, `50 min`, Low Energy, and Resume are visible earlier on the iPhone 15 Pro first viewport.

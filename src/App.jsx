@@ -5,7 +5,9 @@ import { createWorkoutData } from './data/workouts.js';
 import { BottomNav, ExerciseGuidance, ModeSwitch, RestTimer } from './components/TrainingControls.jsx';
 import {
   ACTIVE_PROFILE_ID,
+  DEFAULT_HOTEL_EQUIPMENT,
   GLOBAL_KEYS,
+  HOTEL_EQUIPMENT_IDS,
   LEGACY_KEYS,
   exportProfile,
   flushSyncOutbox,
@@ -43,6 +45,7 @@ const getSetCount = (exercise, lowEnergy) => {
 };
 
 const DURATION_OPTIONS = [15, 30, 50];
+const EQUIPMENT_ORDER = ['dumbbells', 'bench', 'cableStation', 'bands', 'pullUpBar', 'floorSpace', 'roomOnly'];
 
 const getSessionExercises = (exercises = [], durationMinutes = 50) => {
   if (durationMinutes !== 15) return exercises;
@@ -54,6 +57,12 @@ const getSessionSetCount = (exercise, lowEnergy, durationMinutes = 50) => {
   if (durationMinutes === 15) return Math.min(1, baseSets);
   if (durationMinutes === 30) return Math.min(2, baseSets);
   return baseSets;
+};
+
+const getSwapValue = (value) => {
+  if (value === true) return 0;
+  if (Number.isInteger(value)) return value;
+  return null;
 };
 
 const App = () => {
@@ -78,6 +87,7 @@ const App = () => {
   const [setLog, setSetLog] = useState({});
   const [sessionMetrics, setSessionMetrics] = useState([]);
   const [sessionDuration, setSessionDuration] = useState(50);
+  const [hotelEquipment, setHotelEquipment] = useState(DEFAULT_HOTEL_EQUIPMENT);
   const [finishSummary, setFinishSummary] = useState(null);
   const [storageStatus, setStorageStatus] = useState({ persisted: false, pending: 0, estimate: null });
   const [updateReady, setUpdateReady] = useState(false);
@@ -108,6 +118,7 @@ const App = () => {
     setSetLog(data.setLog || {});
     setSessionMetrics(Array.isArray(data.sessionMetrics) ? data.sessionMetrics : []);
     setSessionDuration(DURATION_OPTIONS.includes(data.sessionDuration) ? data.sessionDuration : 50);
+    setHotelEquipment(data.hotelEquipment || DEFAULT_HOTEL_EQUIPMENT);
     if (options.resumeActiveSession && data.activeSession) setActiveView('session');
   }, []);
 
@@ -123,7 +134,8 @@ const App = () => {
     setLog,
     sessionMetrics,
     sessionDuration,
-  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog, sessionMetrics, sessionDuration]);
+    hotelEquipment,
+  }), [completedSets, weights, workoutHistory, swappedExercises, activeSession, exerciseNotes, rpeLog, personalRecords, setLog, sessionMetrics, sessionDuration, hotelEquipment]);
 
   const flushOutboxToFirebase = useCallback(() => {
     const services = firebaseServicesRef.current;
@@ -590,9 +602,64 @@ const App = () => {
     return count;
   };
 
-  const toggleSwapExercise = (dayIndex, sessionMode, exIndex) => {
+  const equipmentLabels = useMemo(() => t.equipmentNames || {}, [t.equipmentNames]);
+
+  const getEquipmentLabel = (id) => equipmentLabels[id] || id;
+
+  const formatEquipmentSummary = (equipment = hotelEquipment) => {
+    if (equipment.roomOnly) return t.hotelRoomOnly;
+    const active = EQUIPMENT_ORDER
+      .filter((id) => id !== 'roomOnly' && equipment[id])
+      .map(getEquipmentLabel);
+    return active.length ? active.join(' + ') : t.noSwapOptions;
+  };
+
+  const requiresAvailableEquipment = (exercise, equipment = hotelEquipment) => {
+    const required = exercise?.equipment || [];
+    if (equipment.roomOnly) return required.every((id) => id === 'floorSpace' || id === 'noEquipment');
+    return required.every((id) => id === 'noEquipment' || equipment[id]);
+  };
+
+  const getSwapOptions = (baseExercise) => [
+    { ...baseExercise, swapIndex: null, swapLabel: t.swapOriginal },
+    ...(baseExercise?.altOptions || []).map((option, index) => ({ ...option, swapIndex: index, swapLabel: option.name })),
+  ];
+
+  const getSwapGroup = (baseExercise, option, sessionMode) => {
+    if (option.swapIndex === null) return t.swapGroupSame;
+    const equipment = option.equipment || [];
+    if (equipment.length === 0 || equipment.every((id) => id === 'floorSpace' || id === 'noEquipment')) return t.swapGroupNone;
+    if (sessionMode === 'hotel' && requiresAvailableEquipment(option)) return t.swapGroupYour;
+    const baseEquipment = (baseExercise.equipment || []).join('|');
+    if (baseEquipment === equipment.join('|')) return t.swapGroupSame;
+    return t.swapGroupDifferent;
+  };
+
+  const selectSwapExercise = (dayIndex, sessionMode, exIndex, swapIndex) => {
     const key = `${dayIndex}-${sessionMode}-${exIndex}`;
-    setSwappedExercises((prev) => ({ ...prev, [key]: !prev[key] }));
+    setSwappedExercises((prev) => {
+      const next = { ...prev };
+      if (swapIndex === null) delete next[key];
+      else next[key] = swapIndex;
+      return next;
+    });
+  };
+
+  const updateHotelEquipment = (id) => {
+    setHotelEquipment((prev) => {
+      if (!HOTEL_EQUIPMENT_IDS.includes(id)) return prev;
+      if (id === 'roomOnly') {
+        const nextRoomOnly = !prev.roomOnly;
+        return nextRoomOnly ? { ...DEFAULT_HOTEL_EQUIPMENT } : { ...prev, roomOnly: false, floorSpace: true };
+      }
+      const next = {
+        ...prev,
+        [id]: !prev[id],
+        roomOnly: false,
+      };
+      if (id !== 'floorSpace') next.floorSpace = true;
+      return next;
+    });
   };
 
   const getExerciseGuidance = (ex, baseEx) => {
@@ -808,7 +875,7 @@ const App = () => {
 
   const todaySummary = getWorkoutSummary(currentDayIndex, mode, jetLagMode, sessionDuration);
   const todayDuration = `${sessionDuration} min`;
-  const todayEquipment = mode === 'home' ? t.homeEquipment : t.hotelEquipment;
+  const todayEquipment = mode === 'home' ? t.homeEquipment : formatEquipmentSummary();
   const firstCue = todaySummary.exercises[0]
     ? getExerciseGuidance(todaySummary.exercises[0], todaySummary.exercises[0]).cues[0]
     : t.allDone;
@@ -860,6 +927,40 @@ const App = () => {
     </header>
   );
 
+  const HotelEquipmentEditor = () => (
+    <div data-testid="hotel-equipment-panel" className="mt-3 rounded-3xl border border-[#D8CFBE] bg-white p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.hotelEquipmentTitle}</p>
+          <p className="mt-1 text-sm font-black text-[#17352D]">{formatEquipmentSummary()}</p>
+        </div>
+        {hotelEquipment.roomOnly && (
+          <span className="rounded-full bg-[#FFF8E8] px-3 py-2 text-[10px] font-black uppercase text-[#654C12]">{t.hotelRoomOnly}</span>
+        )}
+      </div>
+      <p className="mt-2 text-xs font-bold leading-relaxed text-[#626A5E]">{hotelEquipment.roomOnly ? t.hotelRoomOnlyHint : t.hotelEquipmentBody}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2" data-testid="hotel-equipment-checklist">
+        {EQUIPMENT_ORDER.map((id) => {
+          const active = Boolean(hotelEquipment[id]);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => updateHotelEquipment(id)}
+              aria-pressed={active}
+              className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-black transition ${active ? 'border-[#17352D] bg-[#17352D] text-white' : 'border-[#D8CFBE] bg-[#FFFCF4] text-[#626A5E]'}`}
+            >
+              {getEquipmentLabel(id)}
+              <span className={`mt-0.5 block text-[9px] uppercase ${active ? 'text-[#CFE4D7]' : 'text-[#8D9387]'}`}>
+                {active ? t.equipmentAvailable : t.equipmentUnavailable}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const TodayView = () => {
     const next = todaySummary.nextExercise;
     return (
@@ -899,6 +1000,8 @@ const App = () => {
             <Metric label={t.equipmentLabel} value={todayEquipment} />
             <Metric label={t.plannedSets} value={todaySummary.totalSets} />
           </div>
+
+          {mode === 'hotel' && <HotelEquipmentEditor />}
 
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <Metric label={t.lastRelevantLoad} value={lastRelevantLoad} />
@@ -958,6 +1061,7 @@ const App = () => {
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#2F6F5E]">{t.navPlan}</p>
           <h2 className="text-3xl font-black text-[#171915]">{t.planTitle}</h2>
+          {mode === 'hotel' && <p className="mt-1 text-sm font-bold text-[#626A5E]">{t.equipmentLabel}: {formatEquipmentSummary()}</p>}
         </div>
         <div className="sm:min-w-64"><ModeSwitch mode={mode} setMode={setMode} t={t} /></div>
       </section>
@@ -1029,8 +1133,8 @@ const App = () => {
     const exercises = getSessionExercises(dayData[sessionMode] || [], durationMinutes);
     const exerciseIndex = Math.min(activeSession.exerciseIndex, Math.max(0, exercises.length - 1));
     const baseExercise = exercises[exerciseIndex];
-    const isSwapped = swappedExercises[`${activeSession.dayIndex}-${sessionMode}-${exerciseIndex}`];
-    const exercise = isSwapped && baseExercise?.alt ? baseExercise.alt : baseExercise;
+    const activeSwapIndex = getSwapValue(swappedExercises[`${activeSession.dayIndex}-${sessionMode}-${exerciseIndex}`]);
+    const exercise = activeSwapIndex !== null && baseExercise?.altOptions?.[activeSwapIndex] ? baseExercise.altOptions[activeSwapIndex] : baseExercise;
     const totalSets = getSessionSetCount(baseExercise, lowEnergy, durationMinutes);
     const completedCount = getCompletedCount(activeSession.dayIndex, sessionMode, exerciseIndex, totalSets);
     const guidance = getExerciseGuidance(exercise, baseExercise);
@@ -1190,13 +1294,17 @@ const App = () => {
     return (
       <div className="space-y-3">
         {exercises.map((baseExercise, exIndex) => {
-          const isSwapped = swappedExercises[`${dayIndex}-${sessionMode}-${exIndex}`];
-          const exercise = isSwapped && baseExercise.alt ? baseExercise.alt : baseExercise;
+          const activeSwapIndex = getSwapValue(swappedExercises[`${dayIndex}-${sessionMode}-${exIndex}`]);
+          const exercise = activeSwapIndex !== null && baseExercise.altOptions?.[activeSwapIndex] ? baseExercise.altOptions[activeSwapIndex] : baseExercise;
           const numSets = getSessionSetCount(baseExercise, jetLagMode, sessionDuration);
           const completedCount = getCompletedCount(dayIndex, sessionMode, exIndex, numSets);
           const isInfoExpanded = expandedInfo === `${dayIndex}-${sessionMode}-${exIndex}`;
           const guidance = getExerciseGuidance(exercise, baseExercise);
           const currentWeight = weights[`${dayIndex}-${sessionMode}-${exIndex}`] || '';
+          const swapOptions = getSwapOptions(baseExercise);
+          const visibleSwapOptions = sessionMode === 'hotel' && hotelEquipment.roomOnly
+            ? swapOptions.filter((option) => option.swapIndex === null || requiresAvailableEquipment(option))
+            : swapOptions;
           return (
             <article key={`${dayIndex}-${sessionMode}-${exIndex}`} className="rounded-3xl border border-[#D8CFBE] bg-white p-4">
               <div className="flex items-start justify-between gap-3">
@@ -1213,9 +1321,42 @@ const App = () => {
                   const isChecked = completedSets[`${dayIndex}-${sessionMode}-${exIndex}-${setIdx}`];
                   return <button key={setIdx} onClick={() => toggleSet(dayIndex, sessionMode, exIndex, setIdx, exercise.restSeconds ?? 60)} className={`min-h-11 min-w-11 rounded-2xl border text-sm font-black ${isChecked ? 'border-[#17352D] bg-[#17352D] text-white' : 'border-[#D8CFBE] bg-[#FFFCF4] text-[#626A5E]'}`}>{setIdx + 1}</button>;
                 })}
-                {baseExercise.alt && <button onClick={() => toggleSwapExercise(dayIndex, sessionMode, exIndex)} className="min-h-11 rounded-2xl border border-[#D8CFBE] px-3 text-xs font-black text-[#626A5E]">{t.swap}</button>}
                 <button onClick={() => setExpandedInfo(isInfoExpanded ? null : `${dayIndex}-${sessionMode}-${exIndex}`)} className="min-h-11 rounded-2xl border border-[#D8CFBE] px-3 text-xs font-black text-[#626A5E]">{t.info}</button>
               </div>
+              {sessionMode === 'hotel' && isInfoExpanded && (
+                <div data-testid="swap-options" className="mt-4 space-y-3 rounded-3xl bg-[#F4F0E8] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.swap}</p>
+                  {[t.swapGroupYour, t.swapGroupNone, t.swapGroupSame, t.swapGroupDifferent].map((group) => {
+                    const groupOptions = visibleSwapOptions.filter((option) => getSwapGroup(baseExercise, option, sessionMode) === group);
+                    if (!groupOptions.length) return null;
+                    return (
+                      <div key={group}>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-[#2F6F5E]">{group}</p>
+                        <div className="grid gap-2">
+                          {groupOptions.map((option) => {
+                            const isSelected = activeSwapIndex === option.swapIndex || (activeSwapIndex === null && option.swapIndex === null);
+                            const isAvailable = option.swapIndex === null || requiresAvailableEquipment(option);
+                            return (
+                              <button
+                                key={`${option.swapIndex ?? 'original'}-${option.name}`}
+                                type="button"
+                                disabled={!isAvailable}
+                                onClick={() => selectSwapExercise(dayIndex, sessionMode, exIndex, option.swapIndex)}
+                                className={`min-h-11 rounded-2xl border px-3 text-left text-xs font-black ${isSelected ? 'border-[#17352D] bg-[#17352D] text-white' : 'border-[#D8CFBE] bg-white text-[#17352D]'} disabled:opacity-45`}
+                              >
+                                <span>{option.swapLabel || option.name}</span>
+                                <span className={`mt-1 block text-[10px] font-bold ${isSelected ? 'text-[#CFE4D7]' : 'text-[#626A5E]'}`}>
+                                  {isSelected ? t.swapCurrent : isAvailable ? (option.equipment || []).map(getEquipmentLabel).join(' + ') || t.equipmentNames.noEquipment : t.swapUnavailable}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {!exercise.noWeight && !compact && (
                 <input value={currentWeight} onChange={(event) => updateWeight(dayIndex, sessionMode, exIndex, event.target.value)} placeholder={t.weightPlaceholder} className="mt-3 min-h-11 w-full rounded-2xl border border-[#D8CFBE] px-3 font-black outline-none focus:border-[#2F6F5E]" />
               )}

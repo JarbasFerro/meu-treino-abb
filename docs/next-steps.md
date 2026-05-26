@@ -32,11 +32,10 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 ## P1 - Travel, Equipment, And Replacement Quality
 
-- Add a Hotel equipment checklist for the current stay: dumbbells, bench, cable station, bands, pull-up bar, floor space, and no-equipment only.
-- Filter swaps by available equipment: Your Equipment, No Equipment, Same Equipment, Different Equipment.
+- Refine the Hotel equipment checklist after physical travel use, especially whether "room only" should hide more original planned exercises or simply bias swap choices.
+- Refine equipment-aware swaps after real use: improve exercise-specific alternatives and decide whether unavailable original exercises need stronger warnings.
 - Add travel-week templates that preserve the same day order but bias toward dumbbell/bodyweight alternatives and shorter duration choices.
-- Show mode-specific equipment notes in Today before starting, not only inside individual exercises.
-- Add a quick "hotel room only" fallback that avoids assumptions about benches, pull-up bars, or heavy weights.
+- Add richer mode-specific equipment notes in Today, including warnings for hotel movements that depend on furniture stability.
 - Track environment mix locally: Home, Hotel, and Low Energy frequency over time.
 
 ## P1 - Beginner Guidance, Safety, And Progression

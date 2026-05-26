@@ -3,6 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, test } from 'vitest';
 import {
   ACTIVE_PROFILE_ID,
+  DEFAULT_HOTEL_EQUIPMENT,
   LEGACY_KEYS,
   flushSyncOutbox,
   getOutboxCount,
@@ -44,6 +45,9 @@ describe('single-profile backup validation', () => {
   test('rejects malformed backups and non-active profile ids', () => {
     expect(validateProfileBackup({})).toMatchObject({ valid: false, reason: 'missingField' });
     expect(validateProfileBackup({ ...validBackup, weights: [] })).toMatchObject({ valid: false, reason: 'invalidField', field: 'weights' });
+    expect(validateProfileBackup({ ...validBackup, hotelEquipment: [] })).toMatchObject({ valid: false, reason: 'invalidField', field: 'hotelEquipment' });
+    expect(validateProfileBackup({ ...validBackup, hotelEquipment: { floorSpace: 'yes' } })).toMatchObject({ valid: false, reason: 'invalidField', field: 'hotelEquipment' });
+    expect(validateProfileBackup({ ...validBackup, hotelEquipment: { squatRack: true } })).toMatchObject({ valid: false, reason: 'invalidField', field: 'hotelEquipment' });
     expect(validateProfileBackup({ ...validBackup, profileId: 'isabella' })).toMatchObject({ valid: false, reason: 'unknownProfile' });
   });
 });
@@ -66,7 +70,24 @@ describe('profile normalization and import', () => {
       rpeLog: {},
       personalRecords: {},
       setLog: {},
+      hotelEquipment: DEFAULT_HOTEL_EQUIPMENT,
     });
+  });
+
+  test('normalizes compatible hotel equipment defaults and imports older backups', async () => {
+    const normalized = normalizeProfileData(ACTIVE_PROFILE_ID, {
+      ...validBackup,
+      hotelEquipment: { dumbbells: true, floorSpace: false },
+    });
+
+    expect(normalized.hotelEquipment).toMatchObject({
+      ...DEFAULT_HOTEL_EQUIPMENT,
+      dumbbells: true,
+      floorSpace: false,
+    });
+
+    const imported = await importProfile(ACTIVE_PROFILE_ID, validBackup);
+    expect(imported.hotelEquipment).toEqual(DEFAULT_HOTEL_EQUIPMENT);
   });
 
   test('imports valid backups into the active profile and rejects other profile ids', async () => {

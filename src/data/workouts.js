@@ -1,11 +1,77 @@
 const withMobility = (items, extended = false) => [
   ...items,
-  { name: "Thoracic Bench Extensions", position: "Bench/Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, instructions: "Kneel facing the bench with elbows on the pad and hands behind the head. Drop the chest toward the floor and breathe deeply into the lats and thoracic spine." },
-  { name: "World's Greatest Stretch", position: "Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, instructions: "Step into a deep lunge, place the opposite hand on the floor, reach the near-side hand to the instep, then rotate open toward the ceiling. Perform slow rotations on both sides." },
-  { name: "90/90 Hip Switches", position: "Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, instructions: "Sit tall with both knees bent at 90 degrees. Pivot on the heels to switch both knees side to side while keeping the torso upright." },
-  { name: "Downward Dog to Cobra", position: "Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, instructions: "Alternate between Downward Dog, pedaling out calves and hamstrings, and Cobra with hips on the floor, chest up, and neck neutral." },
-  { name: "Progressive Seated Forward Fold", position: "Floor", desc: extended ? "10 min milestone" : "2 min milestone", sets: "1", reps: extended ? "10 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, instructions: "Sit tall with legs straight and toes pulled back. Hinge at the hips on each exhale, then gently round the upper back and aim the top of the head toward the knees." },
+  { name: "Thoracic Bench Extensions", position: "Bench/Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, equipment: ["floorSpace"], instructions: "Kneel facing the bench with elbows on the pad and hands behind the head. Drop the chest toward the floor and breathe deeply into the lats and thoracic spine." },
+  { name: "World's Greatest Stretch", position: "Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, equipment: ["floorSpace"], instructions: "Step into a deep lunge, place the opposite hand on the floor, reach the near-side hand to the instep, then rotate open toward the ceiling. Perform slow rotations on both sides." },
+  { name: "90/90 Hip Switches", position: "Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, equipment: ["floorSpace"], instructions: "Sit tall with both knees bent at 90 degrees. Pivot on the heels to switch both knees side to side while keeping the torso upright." },
+  { name: "Downward Dog to Cobra", position: "Floor", desc: extended ? "4 min mobility" : "2 min mobility", sets: "1", reps: extended ? "4 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, equipment: ["floorSpace"], instructions: "Alternate between Downward Dog, pedaling out calves and hamstrings, and Cobra with hips on the floor, chest up, and neck neutral." },
+  { name: "Progressive Seated Forward Fold", position: "Floor", desc: extended ? "10 min milestone" : "2 min milestone", sets: "1", reps: extended ? "10 min" : "2 min", rest: "0s", restSeconds: 0, category: "mobility", noWeight: true, equipment: ["floorSpace"], instructions: "Sit tall with legs straight and toes pulled back. Hinge at the hips on each exhale, then gently round the upper back and aim the top of the head toward the knees." },
 ];
+
+const fallbackAlternates = {
+  push: [
+    { name: "Wall Push-Ups", desc: "No-equipment press", reps: "12-20", category: "push", noWeight: true, equipment: ["floorSpace"], instructions: "Use a wall or high desk, keep ribs down, and stop with one clean rep in reserve." },
+    { name: "Band Chest Press", desc: "Band press", reps: "10-15", category: "push", noWeight: true, equipment: ["bands"], instructions: "Anchor the band behind you, step forward until lightly loaded, and press without flaring ribs." },
+  ],
+  pull: [
+    { name: "Prone Lat Pulls", desc: "Floor back work", reps: "12-15", category: "pull", noWeight: true, equipment: ["floorSpace"], instructions: "Lie face down, pull elbows toward ribs, and keep the neck long." },
+    { name: "Band Rows", desc: "Band row", reps: "10-15", category: "pull", noWeight: true, equipment: ["bands"], instructions: "Anchor the band securely and row elbows toward ribs with a braced trunk." },
+  ],
+  legs: [
+    { name: "Bodyweight Squats", desc: "No-equipment legs", reps: "15-20", category: "legs", noWeight: true, equipment: ["floorSpace"], instructions: "Use full-foot pressure, slow down the descent, and keep knees tracking over toes." },
+    { name: "Suitcase Goblet Squats", desc: "Travel load", reps: "10-15", category: "legs", noWeight: true, equipment: ["floorSpace"], instructions: "Hold packed luggage close to the chest only if it feels stable and controlled." },
+  ],
+  core: [
+    { name: "Dead Bugs", desc: "Floor core", reps: "10-12/side", category: "core", noWeight: true, equipment: ["floorSpace"], instructions: "Exhale, keep ribs down, and move only as far as you can hold the brace." },
+    { name: "Side Planks", desc: "Floor brace", reps: "30-45s/side", category: "core", noWeight: true, equipment: ["floorSpace"], instructions: "Stack shoulder, ribs, hips, and feet. Use knees down if needed." },
+  ],
+  shouldersArmsCore: [
+    { name: "Pike Push-Ups", desc: "No-equipment shoulders", reps: "6-12", category: "shouldersArmsCore", noWeight: true, equipment: ["floorSpace"], instructions: "Use a pike position to bias shoulders and shorten range if form degrades." },
+    { name: "Band Curls + Pressdowns", desc: "Band arms", reps: "10-15 + 10-15", category: "shouldersArmsCore", noWeight: true, equipment: ["bands"], instructions: "Use smooth band tension and keep elbows controlled." },
+  ],
+  recovery: [
+    { name: "Light Bodyweight Flow", desc: "Room-only flow", reps: "10-20 min", category: "recovery", noWeight: true, equipment: ["floorSpace"], instructions: "Move through easy squats, lunges, planks, and breathing at a restorative pace." },
+  ],
+  mobility: [
+    { name: "Downward Dog to Cobra", desc: "Floor mobility", reps: "2 min", category: "mobility", noWeight: true, equipment: ["floorSpace"], instructions: "Alternate positions slowly and stay out of painful range." },
+  ],
+};
+
+const inferEquipment = (exercise) => {
+  if (exercise.equipment) return exercise.equipment;
+  const text = `${exercise.name} ${exercise.position || ""} ${exercise.desc || ""} ${exercise.instructions || ""}`.toLowerCase();
+  const equipment = new Set();
+  if (text.includes("db") || text.includes("dumbbell") || text.includes("weighted")) equipment.add("dumbbells");
+  if (text.includes("bench") || text.includes("chair") || text.includes("bed")) equipment.add("bench");
+  if (text.includes("band")) equipment.add("bands");
+  if (text.includes("pull-up")) equipment.add("pullUpBar");
+  if (text.includes("floor") || exercise.noWeight || equipment.size === 0) equipment.add("floorSpace");
+  return Array.from(equipment);
+};
+
+const uniqueAlternates = (exercise) => {
+  const existing = [
+    ...(exercise.alt ? [exercise.alt] : []),
+    ...(exercise.altOptions || []),
+    ...(fallbackAlternates[exercise.category] || []),
+  ];
+  const seen = new Set();
+  return existing
+    .filter((option) => {
+      const key = option.name;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((option) => ({
+      ...option,
+      sets: option.sets || exercise.sets,
+      rest: option.rest || exercise.rest,
+      restSeconds: option.restSeconds ?? exercise.restSeconds,
+      category: option.category || exercise.category,
+      noWeight: option.noWeight ?? exercise.noWeight,
+      equipment: inferEquipment(option),
+    }));
+};
 
 const workoutDataBase = [
   {
@@ -112,15 +178,17 @@ const translateWorkoutText = (value, workoutCopy) => {
   return workoutCopy[value] || value;
 };
 
-const localizeExercise = (exercise, workoutCopy) => ({
+const localizeExercise = (exercise, workoutCopy, includeAlternates = true) => ({
   ...exercise,
   sourceName: exercise.name,
+  equipment: inferEquipment(exercise),
   name: translateWorkoutText(exercise.name, workoutCopy),
   position: translateWorkoutText(exercise.position, workoutCopy),
   desc: translateWorkoutText(exercise.desc, workoutCopy),
   reps: translateWorkoutText(exercise.reps, workoutCopy),
   instructions: translateWorkoutText(exercise.instructions, workoutCopy),
-  alt: exercise.alt ? localizeExercise(exercise.alt, workoutCopy) : undefined,
+  alt: exercise.alt ? localizeExercise(exercise.alt, workoutCopy, false) : undefined,
+  altOptions: includeAlternates ? uniqueAlternates(exercise).map((option) => localizeExercise(option, workoutCopy, false)) : [],
 });
 
 export const createWorkoutData = (t, workoutCopy = {}) => workoutDataBase.map((dayData, dayIndex) => ({
