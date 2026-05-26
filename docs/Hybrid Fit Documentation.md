@@ -84,21 +84,21 @@ The application was built as a single-page **SPA (Single Page Application)** wit
 
 ### **5.2. Sound System (Voice API & Web Audio)**
 
-* To avoid the user needing to look at the screen to know the rest is over, the application implements window.speechSynthesis (Text-to-Speech) which reads the alert in the selected language.  
+* To avoid the user needing to look at the screen to know the rest is over, the application implements window.speechSynthesis (Text-to-Speech) which reads the English alert.
 * As a *fallback* (in case the browser blocks voice), a basic sound synthesizer was implemented via the Web Audio API (Oscillator generating a 440Hz Beep).  
-* The *Quiet Mode* tag (\[MUTE\]) completely silences this API.
+* Sound is always enabled; the former quiet-mode control was removed to save header space.
 
 ### **5.3. Hybrid Backend (Offline-First)**
 
 Data persistence (Set Progress, Consistency History, and *Progressive Overload* Weight Tracking) is managed with a local-first redundancy approach:
 
 1. **Tier 1: IndexedDB (Local Source of Truth):** Workout state lives first in the `hybridFitDb` IndexedDB database. Profile data, active sessions, completed sets, weights, notes, RPE, personal records, and set logs are loaded and saved locally before any cloud backup is attempted. Existing legacy localStorage workout keys are migrated into IndexedDB without deleting the old keys.
-2. **Tier 2: Firebase Firestore (Optional Backup):** When Vite Firebase environment variables are configured, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for backup synchronization. Data is saved separately for Jarbas and Isabella under /workout_profiles/{profileId}/app_data/workout_data. Failed backup writes remain in a local IndexedDB outbox and retry while the app is open or comes back online.
-3. **Preference Storage:** window.localStorage is intentionally limited to tiny preferences that must be readable before IndexedDB opens: selected profile, language, quiet mode, and Low Energy / Jet Lag mode.
+2. **Tier 2: Firebase Firestore (Optional Backup):** When Vite Firebase environment variables are configured, the application uses anonymous authentication (signInAnonymously) and Firebase *WebSockets* (onSnapshot) for backup synchronization. Data is saved under the single Jarbas profile at /workout_profiles/jarbas/app_data/workout_data. Failed backup writes remain in a local IndexedDB outbox and retry while the app is open or comes back online.
+3. **Preference Storage:** window.localStorage is intentionally limited to the Low Energy / Jet Lag mode preference and legacy compatibility values; workout state remains in IndexedDB.
 
 ### **5.4. Firebase Rules**
 
-The Firestore security model is intentionally simple for a private family app. Authentication is anonymous, and rules restrict reads and writes to the two expected profile documents: Jarbas and Isabella. The selector separates profile data, but it is not a login barrier; anyone with the URL can select either profile.
+The Firestore security model is intentionally simple for a private app. Authentication is anonymous, and rules restrict reads and writes to the single expected `jarbas` profile document.
 
 ### **5.5. Analytical Engine (Heatmap)**
 

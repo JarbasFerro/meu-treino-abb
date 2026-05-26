@@ -2,9 +2,8 @@ import { expect, test } from '@playwright/test';
 
 const profileId = 'jarbas';
 
-const selectProfile = async (page) => {
+const openApp = async (page) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Jarbas/ }).click();
   await expect(page.getByRole('heading', { name: /Hybrid Fit/ })).toBeVisible();
   await expect(page.getByRole('button', { name: '50 min' })).toBeVisible();
 };
@@ -48,7 +47,7 @@ test('migrates legacy localStorage into IndexedDB without deleting legacy data',
     localStorage.setItem('abbSwappedExercises', JSON.stringify({ '0-home-1': true }));
   });
 
-  await selectProfile(page);
+  await openApp(page);
 
   await expect.poll(() => getProfileData(page)).toMatchObject({
     profileId,
@@ -67,7 +66,7 @@ test('migrates legacy localStorage into IndexedDB without deleting legacy data',
 });
 
 test('starts and resumes an active session with logged set details', async ({ page }) => {
-  await selectProfile(page);
+  await openApp(page);
   await page.getByRole('button', { name: '50 min' }).click();
   await expect(page.getByText('Quick warm-up')).toBeVisible();
   await page.getByRole('button', { name: 'Warm-up done' }).click();
@@ -100,7 +99,7 @@ test('starts and resumes an active session with logged set details', async ({ pa
 });
 
 test('exports JSON, rejects invalid imports, imports valid backups, and exports CSV logs', async ({ page }, testInfo) => {
-  await selectProfile(page);
+  await openApp(page);
   await page.getByRole('button', { name: '30 min' }).click();
   await page.getByRole('button', { name: 'Warm-up done' }).click();
   await page.getByPlaceholder('Load').first().fill('18');
@@ -142,7 +141,7 @@ test('exports JSON, rejects invalid imports, imports valid backups, and exports 
 });
 
 test('keeps the PWA shell available on offline refresh', async ({ page, context }) => {
-  await selectProfile(page);
+  await openApp(page);
   await waitForServiceWorker(page);
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -150,8 +149,8 @@ test('keeps the PWA shell available on offline refresh', async ({ page, context 
   await context.setOffline(false);
 });
 
-test('supports duration scaling, low energy, finish summary, and translated execution copy', async ({ page }) => {
-  await selectProfile(page);
+test('supports duration scaling, low energy, finish summary, and English-only execution copy', async ({ page }) => {
+  await openApp(page);
 
   await page.getByRole('button', { name: '15 min' }).click();
   await page.getByRole('button', { name: 'Skip warm-up' }).click();
@@ -168,12 +167,10 @@ test('supports duration scaling, low energy, finish summary, and translated exec
   await page.getByRole('button', { name: 'End session' }).click();
 
   await page.getByRole('button', { name: /Low energy session/ }).click();
-  await page.getByRole('button', { name: '[en]' }).click();
-  await expect(page.getByText('Calentamiento rápido')).toBeVisible();
-  await page.getByRole('button', { name: '[es]' }).click();
-  await expect(page.getByText('Aquecimento rápido')).toBeVisible();
-  await page.getByRole('button', { name: '[pt]' }).click();
   await expect(page.getByText('Quick warm-up')).toBeVisible();
+  await expect(page.getByText('Calentamiento rápido')).toBeHidden();
+  await expect(page.getByText('Aquecimento rápido')).toBeHidden();
+  await expect(page.getByRole('button', { name: /\[(en|es|pt)\]/i })).toHaveCount(0);
   await page.getByRole('button', { name: 'Warm-up done' }).click();
   await expect(page.getByText('0/2').first()).toBeVisible();
   const data = await getProfileData(page);
@@ -181,7 +178,7 @@ test('supports duration scaling, low energy, finish summary, and translated exec
 });
 
 test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) => {
-  await selectProfile(page);
+  await openApp(page);
 
   const header = page.getByTestId('status-header');
   const nav = page.getByTestId('bottom-nav');
@@ -210,7 +207,7 @@ test('fits the compact iPhone 15 Pro Today shell', async ({ page }, testInfo) =>
 });
 
 test('keeps warm-up, sticky actions, rest timer, and compact nav separated on iPhone 15 Pro', async ({ page }, testInfo) => {
-  await selectProfile(page);
+  await openApp(page);
   await page.getByRole('button', { name: '50 min' }).click();
   await expect(page.getByText('Quick warm-up')).toBeVisible();
 
@@ -238,19 +235,20 @@ test('keeps warm-up, sticky actions, rest timer, and compact nav separated on iP
   await page.screenshot({ path: testInfo.outputPath('iphone-15-pro-session-rest.png'), fullPage: false });
 });
 
-test('keeps compact header and nav labels contained in PT, EN, and ES', async ({ page }) => {
-  await selectProfile(page);
+test('keeps compact header and nav contained with simplified controls', async ({ page }) => {
+  await openApp(page);
 
-  for (const expectedButton of ['[en]', '[es]', '[pt]']) {
-    await expect(page.getByTestId('status-header')).toBeVisible();
-    await expect(page.getByTestId('bottom-nav')).toBeVisible();
-    const viewport = page.viewportSize();
-    const headerBox = await page.getByTestId('status-header').boundingBox();
-    const navBox = await page.getByTestId('bottom-nav').boundingBox();
-    expect(headerBox.x).toBeGreaterThanOrEqual(0);
-    expect(navBox.x).toBeGreaterThanOrEqual(0);
-    expect(headerBox.x + headerBox.width).toBeLessThanOrEqual(viewport.width + 1);
-    expect(navBox.x + navBox.width).toBeLessThanOrEqual(viewport.width + 1);
-    await page.getByRole('button', { name: expectedButton }).click();
-  }
+  await expect(page.getByTestId('status-header')).toBeVisible();
+  await expect(page.getByTestId('bottom-nav')).toBeVisible();
+  await expect(page.getByRole('button', { name: /\[(en|es|pt)\]/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /\[sound\]|\[mute\]/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Jarbas|Isabella/ })).toHaveCount(0);
+
+  const viewport = page.viewportSize();
+  const headerBox = await page.getByTestId('status-header').boundingBox();
+  const navBox = await page.getByTestId('bottom-nav').boundingBox();
+  expect(headerBox.x).toBeGreaterThanOrEqual(0);
+  expect(navBox.x).toBeGreaterThanOrEqual(0);
+  expect(headerBox.x + headerBox.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(navBox.x + navBox.width).toBeLessThanOrEqual(viewport.width + 1);
 });

@@ -8,7 +8,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - Keep the app Today-first. The first screen should answer: what do I do today, how long will it take, what equipment do I need, what should I lift or modify, and what counts if energy is low.
 - Keep IndexedDB as the source of truth for workout state, with Firebase as optional backup only. The app must stay useful offline and must never require cloud sync to start or complete training.
-- Keep localStorage limited to tiny preferences: selected profile, language, quiet mode, and low-energy mode.
+- Keep localStorage limited to tiny preferences and legacy compatibility; the active app should use English, sound-on alerts, one fixed profile, and Low Energy / Jet Lag as the only current preference.
 - Keep Low Energy / Jet Lag as a valid habit-preserving session, not a failure state.
 - Keep Home and Hotel modes first-class. Travel is part of the product, not an edge case.
 - Keep beginner guidance, safety language, and progressive overload visible in the execution flow instead of hiding them in a content library.
@@ -27,7 +27,7 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 
 - Refine duration programming after real use: validate whether the 15-minute first-four-exercises rule and 30-minute two-set cap feel right across all days.
 - Improve session finish summaries with clearer best lift/core note selection once richer per-exercise history views exist.
-- Continue one-handed active-session polish after physical iPhone testing, especially whether the compact three-column primary action row remains readable in Portuguese and Spanish during real use.
+- Continue one-handed active-session polish after physical iPhone testing, especially whether the compact three-column primary action row remains readable during real use.
 - Revisit Today density after a week of use: decide whether the start buttons should move above secondary metrics so session start is visible earlier on the iPhone 15 Pro first viewport.
 - Add warm-up load suggestions for weighted exercises when enough history exists.
 
@@ -80,5 +80,5 @@ Last research audit: 2026-05-26, comparing `docs/deep-research-report.md` agains
 - Code-split Firebase or lazy-load optional backup sync to reduce the production bundle.
 - Review Workbox runtime caching after media assets exist: shell precache, navigation fallback, stale-while-revalidate static assets, and predictable offline behavior.
 - Add a hard-coded string audit script for app UI copy outside `src/data/i18n.js` and workout data.
-- Extend browser-based visual checks to include Progress import modal geometry and additional active-session long strings in PT/ES.
+- Extend browser-based visual checks to include Progress import modal geometry and active-session long strings.
 - Add performance budgets for app shell size and first usable Today render.

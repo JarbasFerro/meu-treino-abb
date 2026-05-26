@@ -2,7 +2,6 @@ import { openDB } from 'idb';
 
 export const PROFILES = [
   { id: 'jarbas', label: 'Jarbas' },
-  { id: 'isabella', label: 'Isabella' },
 ];
 
 export const GLOBAL_KEYS = {

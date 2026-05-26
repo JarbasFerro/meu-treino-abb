@@ -8,6 +8,14 @@ Future agents must read this file before making code changes. Append a dated ent
 - Captured the need to use the full top screen area while respecting the dynamic island protected zone.
 - Added compact bottom navigation and lower-control stacking checks to the execution-flow backlog and visual test backlog.
 
+## 2026-05-26 - Simplified single-user header controls
+
+- Removed the header language, sound/quiet-mode, and profile-switch buttons to reclaim iPhone 15 Pro header space.
+- Fixed the runtime language to English and kept rest-timer speech/audio alerts always enabled.
+- Collapsed the app to one fixed `jarbas` profile so the app opens directly into Today without a profile-selection screen; Firestore rules and backup validation now accept only that single profile.
+- Updated browser tests to assert the removed controls stay absent while existing migration, session, import/export, offline, and iPhone layout behavior still works.
+- Updated README, internal documentation, and next steps to reflect the single-profile, English-only, sound-on app model.
+
 ## 2026-05-26 - iPhone 15 Pro screen optimization
 
 - Updated the PWA viewport and Apple standalone metadata for edge-to-edge display with `viewport-fit=cover` and translucent iOS status bar behavior.

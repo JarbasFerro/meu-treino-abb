@@ -21,7 +21,7 @@ After implementing, agents must append or update `docs/implementation-log.md` wi
 - Low Energy / Jet Lag mode that caps exercise volume to preserve the habit.
 - Beginner guidance per exercise: cues, setup notes, common mistakes, and progression advice.
 - Progressive overload logging for weighted movements.
-- Rest timer with speech or audio fallback, plus quiet mode.
+- Rest timer with speech or audio fallback.
 - IndexedDB-first persistence, with optional Firebase backup sync.
 - Workbox-powered PWA manifest and service worker for installable offline use.
 
@@ -52,7 +52,7 @@ npm run build
 
 The app works without Firebase. To enable cloud sync, copy `.env.example` to `.env.local` and fill the Vite Firebase variables.
 
-Firestore rules are in `firestore.rules`. The current rules allow authenticated anonymous users to read and write only the `jarbas` and `isabella` profile documents.
+Firestore rules are in `firestore.rules`. The current rules allow authenticated anonymous users to read and write only the single `jarbas` profile document.
 
 ## Deployment
 

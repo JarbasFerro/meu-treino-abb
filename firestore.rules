@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /workout_profiles/{profileId}/app_data/workout_data {
       allow read, write: if request.auth != null
-        && profileId in ['jarbas', 'isabella'];
+        && profileId == 'jarbas';
     }
   }
 }

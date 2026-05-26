@@ -9,7 +9,6 @@ import { BottomNav, ExerciseGuidance, ModeSwitch, RestTimer } from './components
 import {
   GLOBAL_KEYS,
   LEGACY_KEYS,
-  PROFILES,
   exportProfile,
   flushSyncOutbox,
   getOutboxCount,
@@ -19,7 +18,6 @@ import {
   loadProfileData,
   migrateProfileFromLocalStorage,
   requestPersistentStorage,
-  readBoolStorage,
   saveOutboxMutation,
   saveProfileData,
   validateProfileBackup,
@@ -48,23 +46,8 @@ try {
   console.warn('Firebase offline/local mode.', error);
 }
 
-const getInitialProfile = () => {
-  try {
-    const savedProfile = localStorage.getItem(GLOBAL_KEYS.selectedProfile);
-    return PROFILES.some((profile) => profile.id === savedProfile) ? savedProfile : '';
-  } catch {
-    return '';
-  }
-};
-
-const getInitialLanguage = () => {
-  try {
-    const savedLang = localStorage.getItem(GLOBAL_KEYS.lang);
-    return translations[savedLang] ? savedLang : 'en';
-  } catch {
-    return 'en';
-  }
-};
+const SINGLE_PROFILE_ID = 'jarbas';
+const APP_LANGUAGE = 'en';
 
 const getSetCount = (exercise, lowEnergy) => {
   const originalSets = parseInt(exercise?.sets, 10) || 1;
@@ -86,7 +69,7 @@ const getSessionSetCount = (exercise, lowEnergy, durationMinutes = 50) => {
 };
 
 const App = () => {
-  const [selectedProfile, setSelectedProfile] = useState(getInitialProfile);
+  const selectedProfile = SINGLE_PROFILE_ID;
   const [activeView, setActiveView] = useState('today');
   const [mode, setMode] = useState('home');
   const [jetLagMode, setJetLagMode] = useState(false);
@@ -96,8 +79,7 @@ const App = () => {
   const [swappedExercises, setSwappedExercises] = useState({});
   const [weights, setWeights] = useState({});
   const [workoutHistory, setWorkoutHistory] = useState({});
-  const [quietMode, setQuietMode] = useState(false);
-  const [lang, setLang] = useState(getInitialLanguage);
+  const lang = APP_LANGUAGE;
   const [user, setUser] = useState(null);
   const [isSynced, setIsSynced] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
@@ -123,7 +105,6 @@ const App = () => {
 
   const t = translations[lang] || translations.en;
   const workoutData = useMemo(() => createWorkoutData(t, workoutTranslations[lang] || {}), [lang, t]);
-  const selectedProfileLabel = PROFILES.find((profile) => profile.id === selectedProfile)?.label || '';
 
   const applyWorkoutData = useCallback((data, options = {}) => {
     setCompletedSets(data.completedSets || {});
@@ -280,12 +261,10 @@ const App = () => {
     if (!selectedProfile) return;
     try {
       localStorage.setItem(GLOBAL_KEYS.jetLag, jetLagMode.toString());
-      localStorage.setItem(GLOBAL_KEYS.quiet, quietMode.toString());
-      localStorage.setItem(GLOBAL_KEYS.lang, lang);
     } catch {
       console.warn('Unable to save local preferences.');
     }
-  }, [jetLagMode, quietMode, lang, selectedProfile]);
+  }, [jetLagMode, selectedProfile]);
 
   /*
    * Legacy preference migration stays on localStorage because those values are tiny
@@ -294,27 +273,20 @@ const App = () => {
   useEffect(() => {
     try {
       const legacyJetLag = localStorage.getItem(LEGACY_KEYS.jetLag);
-      const legacyQuiet = localStorage.getItem(LEGACY_KEYS.quiet);
-      const legacyLang = localStorage.getItem(LEGACY_KEYS.lang);
 
       if (!localStorage.getItem(GLOBAL_KEYS.jetLag) && legacyJetLag !== null) localStorage.setItem(GLOBAL_KEYS.jetLag, legacyJetLag);
-      if (!localStorage.getItem(GLOBAL_KEYS.quiet) && legacyQuiet !== null) localStorage.setItem(GLOBAL_KEYS.quiet, legacyQuiet);
-      if (!localStorage.getItem(GLOBAL_KEYS.lang) && legacyLang !== null) localStorage.setItem(GLOBAL_KEYS.lang, legacyLang);
 
-      setJetLagMode(readBoolStorage(GLOBAL_KEYS.jetLag, LEGACY_KEYS.jetLag));
-      setQuietMode(readBoolStorage(GLOBAL_KEYS.quiet, LEGACY_KEYS.quiet));
-      const savedLang = localStorage.getItem(GLOBAL_KEYS.lang);
-      if (translations[savedLang]) setLang(savedLang);
+      const value = localStorage.getItem(GLOBAL_KEYS.jetLag) ?? localStorage.getItem(LEGACY_KEYS.jetLag);
+      setJetLagMode(value === 'true');
     } catch {
       console.warn('Unable to load local preferences.');
     }
   }, []);
 
   const playAlert = useCallback(() => {
-    if (quietMode) return;
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(t.voiceEnd);
-      utterance.lang = lang === 'pt' ? 'pt-PT' : lang === 'en' ? 'en-US' : 'es-ES';
+      utterance.lang = 'en-US';
       utterance.volume = 0.8;
       window.speechSynthesis.speak(utterance);
       return;
@@ -335,7 +307,7 @@ const App = () => {
     } catch {
       console.warn('Unable to play fallback alert sound.');
     }
-  }, [quietMode, lang, t.voiceEnd]);
+  }, [t.voiceEnd]);
 
   useEffect(() => {
     let interval = null;
@@ -350,7 +322,7 @@ const App = () => {
 
   const startRestTimer = (duration = 60) => {
     if (duration <= 0) return;
-    if (!quietMode && 'speechSynthesis' in window && window.speechSynthesis.getVoices().length === 0) {
+    if ('speechSynthesis' in window && window.speechSynthesis.getVoices().length === 0) {
       const silentVoice = new SpeechSynthesisUtterance('');
       silentVoice.volume = 0;
       window.speechSynthesis.speak(silentVoice);
@@ -592,12 +564,6 @@ const App = () => {
     setSwappedExercises((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const cycleLanguage = () => {
-    const langs = ['pt', 'en', 'es'];
-    const nextIdx = (langs.indexOf(lang) + 1) % langs.length;
-    setLang(langs[nextIdx]);
-  };
-
   const getExerciseGuidance = (ex, baseEx) => {
     const name = (baseEx.sourceName || ex.sourceName || ex.name).toLowerCase();
     const copy = t.guidance;
@@ -803,16 +769,6 @@ const App = () => {
     setExpandedInfo(null);
   };
 
-  const clearSelectedProfile = () => {
-    try {
-      localStorage.removeItem(GLOBAL_KEYS.selectedProfile);
-    } catch (error) {
-      console.warn('Unable to clear selected profile.', error);
-    }
-    setActiveSession(null);
-    setSelectedProfile('');
-  };
-
   const last14Days = Array.from({ length: 14 }).map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (13 - i));
@@ -859,10 +815,7 @@ const App = () => {
             )}
           </div>
         </div>
-        <div className="flex shrink-0 justify-end gap-1 text-[10px] font-black">
-          <button onClick={cycleLanguage} className="min-h-11 min-w-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-2 uppercase">[{lang}]</button>
-          <button onClick={() => setQuietMode(!quietMode)} className="min-h-11 min-w-11 rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-2">{quietMode ? t.quietOn : t.quietOff}</button>
-          <button onClick={clearSelectedProfile} className="min-h-11 max-w-16 truncate rounded-full border border-[#D8CFBE] bg-[#FFFCF4] px-2">{selectedProfileLabel}</button>
+        <div className="flex shrink-0 justify-end text-[10px] font-black">
           <button onClick={() => setShowResetModal(true)} className="min-h-11 min-w-11 rounded-full border border-[#D9B8B0] bg-[#FFF8F6] px-2 text-[#A6422F]">{t.resetActionShort}</button>
         </div>
       </div>
@@ -1222,25 +1175,6 @@ const App = () => {
       <strong className="mt-1 block break-words text-xl font-black text-[#17352D] sm:text-2xl">{value}</strong>
     </div>
   );
-
-  if (!selectedProfile) {
-    return (
-      <div className="min-h-screen bg-[#F4F0E8] px-4 py-10 text-[#171915]">
-        <section className="mx-auto flex min-h-[80vh] max-w-xl flex-col justify-center">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#2F6F5E]">{t.selectProfile}</p>
-          <h1 className="mt-3 text-6xl font-black leading-[0.9]">Hybrid<br />Fit</h1>
-          <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            {PROFILES.map((profile) => (
-              <button key={profile.id} onClick={() => setSelectedProfile(profile.id)} className="min-h-24 rounded-3xl border border-[#D8CFBE] bg-[#FFFCF4] p-5 text-left shadow-sm">
-                <span className="text-[10px] font-black uppercase tracking-wide text-[#626A5E]">{t.profileLabel}</span>
-                <strong className="mt-2 block text-3xl font-black">{profile.label}</strong>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <>
